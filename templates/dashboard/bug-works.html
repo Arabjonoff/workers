@@ -1,0 +1,153 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <!-- Hero -->
+        <div class="page-hero" style="background:linear-gradient(135deg,#ff9a3c 0%,#ff4747 100%);box-shadow:0 10px 30px rgba(255,71,71,.22);">
+            <h2>🚩 Jarima belgilash</h2>
+            <p>Ishchilarga jarima qo'yish va jarimalar tarixi</p>
+        </div>
+
+        <!-- Stat cards -->
+        <div class="row">
+            <div class="col-md-6 col-12 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic" style="background:linear-gradient(135deg,#ff4747,#ff7676);"><i class="mdi mdi-flag"></i></div>
+                    <div><small>Jami jarimalar</small><h4>{{total_bugs|intcomma}} so'm</h4></div>
+                </div>
+            </div>
+            <div class="col-md-6 col-12 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic" style="background:linear-gradient(135deg,#ffc100,#ffd44d);"><i class="mdi mdi-account-alert"></i></div>
+                    <div><small>Jarima olganlar</small><h4>{{fined}} ta ishchi</h4></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jarima qo'shish formasi -->
+        <div class="card soft-card">
+            <div class="card-body">
+                <h4 class="card-title mb-4">Yangi jarima</h4>
+                <form class="form-modern" method="post"> {% csrf_token %}
+                    <div class="row align-items-end">
+                        <div class="col-md-4 mb-3">
+                            <label class="fm-label">Ishchi</label>
+                            <select name="worker" required class="form-control" id="worker_choice">
+                                <option value="">Ishchini tanlang</option>
+                                {% for worker in request.user.admin.workers.all %}
+                                <option value="{{worker.id}}">{{worker.user.first_name}} {{worker.user.last_name}}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="fm-label">Summa (so'm)</label>
+                            <input type="number" class="form-control" id="price" name="price" placeholder="0" required />
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label class="fm-label">Izoh</label>
+                            <input type="text" class="form-control" id="info" name="info" placeholder="Jarima sababi" required />
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <button type="submit" class="btn btn-danger btn-modern"><i class="mdi mdi-check"></i> Tasdiqlash</button>
+                        <button type="reset" class="btn btn-light btn-modern">Tozalash</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Jarimalar jadvali -->
+        <div class="card soft-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap:10px;">
+                    <h4 class="card-title mb-0">Jarimalar</h4>
+                    <div class="d-flex align-items-center" style="gap:10px;">
+                        <div class="search-box">
+                            <i class="mdi mdi-magnify"></i>
+                            <input type="text" id="tbl_search" placeholder="Ishchi qidirish...">
+                        </div>
+                        <a href="/usta/delete/?type=bug_all" class="btn btn-danger btn-sm btn-modern">
+                            <i class="mdi mdi-delete-sweep"></i> Barchasi
+                        </a>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="tbl-modern" id="bugs_table">
+                        <thead><tr><th>Ishchi</th><th>Jami summa</th><th>Oxirgi sana</th><th>Amallar</th></tr></thead>
+                        <tbody>
+                            {% for worker in bugs %}
+                            {% if worker.bugs.all.count > 0 %}
+                            <tr>
+                                <td>
+                                    <span class="avatar">{{worker.user.first_name|first|upper}}</span>
+                                    {{worker.user.first_name}} {{worker.user.last_name}}
+                                </td>
+                                <td>
+                                    {% if worker.bugs_sum == 0 %}<span class="badge-soft badge-gray">—</span>
+                                    {% else %}<span class="badge-soft badge-amber">{{worker.bugs_sum|intcomma}} so'm</span>{% endif %}
+                                </td>
+                                <td>{{worker.bugs.last.date.date}}</td>
+                                <td style="text-align:right;">
+                                    <button class="act-btn act-blue" data-bs-toggle="modal" data-bs-target="#worklist{{worker.id}}">
+                                        <i class="mdi mdi-eye"></i> Batafsil
+                                    </button>
+
+                                    <div class="modal fade" id="worklist{{worker.id}}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog"><div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">{{worker.user.first_name}} {{worker.user.last_name}} — jarimalar</h5>
+                                            </div>
+                                            <div class="modal-body">
+                                                <table class="tbl-modern">
+                                                    <thead><tr><th>Sana</th><th>Izoh</th><th>Summasi</th></tr></thead>
+                                                    <tbody>
+                                                        {% for history in worker.bugs.all %}
+                                                        <tr>
+                                                            <td>{{history.date.date}}</td>
+                                                            <td>{{history.info}}</td>
+                                                            <td style="text-align:right;">{{history.price|intcomma}} so'm</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <a href="/usta/delete/?type=bug&worker={{worker.id}}" class="btn btn-danger">O'chirish</a>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                                            </div>
+                                        </div></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                            <tr class="empty-row" id="no_results" style="display:none;"><td colspan="4">Hech narsa topilmadi</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    window.addEventListener('load', function () {
+        var s = document.getElementById('tbl_search');
+        if (s) s.addEventListener('keyup', function () {
+            var q = this.value.toLowerCase(), rows = document.querySelectorAll('#bugs_table tbody tr'), shown = 0;
+            rows.forEach(function(r){
+                if (r.id === 'no_results') return;
+                var m = r.cells[0] && r.cells[0].textContent.toLowerCase().indexOf(q) > -1;
+                r.style.display = m ? '' : 'none'; if (m) shown++;
+            });
+            document.getElementById('no_results').style.display = shown ? 'none' : '';
+        });
+    });
+</script>
+{% endblock wrapper %}

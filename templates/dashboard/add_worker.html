@@ -1,0 +1,95 @@
+{% extends 'dashboard/wrapper.html' %}
+
+{% block wrapper %}
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <div class="page-hero">
+            <h2>➕ Ishchi qo'shish</h2>
+            <p>Yangi ishchini shaxsiy ma'lumotlari bilan ro'yxatga qo'shing</p>
+        </div>
+
+        <div class="card soft-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+                    <h4 class="card-title mb-0">Shaxsiy ma'lumotlar</h4>
+                    <a href="/usta/workers/" class="btn btn-light btn-modern">
+                        <i class="mdi mdi-arrow-left"></i> Ro'yxatga qaytish
+                    </a>
+                </div>
+
+                <form class="form-modern" method="post"> {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Ismi</label>
+                            <input type="text" class="form-control" name="first_name" placeholder="Ismini kiriting" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Familiyasi</label>
+                            <input type="text" class="form-control" name="last_name" placeholder="Familiyasini kiriting" required />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Telefon raqami</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <div class="input-group-text">+998</div>
+                                </div>
+                                <input type="number" data-id="{{ request.user.admin.id }}" id="phone"
+                                    class="form-control" name="phone" placeholder="90 123 45 67" required />
+                            </div>
+                            <small class="text-primary" id="message"></small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Uy telefon raqami <span class="text-muted">(ixtiyoriy)</span></label>
+                            <input type="number" class="form-control" name="homenumber" placeholder="Uy raqami" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Parol</label>
+                            <input type="text" class="form-control" name="password" placeholder="Ishchi uchun parol" required />
+                            <div class="form-hint">Ishchi telefon raqami (login) va shu parol bilan tizimga kiradi</div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Tug'ilgan sanasi</label>
+                            <input type="date" class="form-control" name="birth" required value="2000-01-01" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Manzili</label>
+                            <input type="text" class="form-control" name="address" required value="Belgilanmagan" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="fm-label">Hozirgi balansi (so'm)</label>
+                            <input type="number" class="form-control" name="balance" required value="0" />
+                            <div class="form-hint">Ishchining boshlang'ich qarzi/balansi</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-2">
+                        <button type="submit" class="btn btn-primary btn-modern">
+                            <i class="mdi mdi-account-plus"></i> Ishchi qo'shish
+                        </button>
+                        <button type="reset" class="btn btn-light btn-modern">Tozalash</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('load', function () {
+        var $ = window.jQuery;
+        if (!$) return;
+        $('#get-sms').on('click', function () {
+            $(this).addClass('disabled');
+            $.ajax({ url:'/usta/send_sms/', type:'get',
+                data:{phone:$('#phone').val(), id:$('#phone').data('id')},
+                success:function(r){ $('#message').html(r['status']); } });
+        });
+    });
+</script>
+{% endblock wrapper %}

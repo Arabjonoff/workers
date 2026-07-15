@@ -1,0 +1,98 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+      <!-- partial -->
+      
+      {% block wrapper %}
+
+ 
+        
+      <div class="main-panel">
+        <div class="content-wrapper">
+          <div class="row">
+            
+            {% for category in admin.work_categories.all %}
+              
+            <div class="col-md-6 mb-3">
+              <div class="card">
+                <div class="card-body">
+                  <h4 class="card-title">{{ category.name }}</h4>
+                  <div class="table-responsive">
+                    <table class="table table-striped">
+                      <thead>
+                        <tr>
+                          <th>
+                            I.F
+                          </th>
+                          <th style="float: right;">
+                            Xolati
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        
+                        {% for worker in admin.workers.all %}
+                          
+                        <tr>
+                          <td>
+                            {{ worker.user.first_name }} {{ worker.user.last_name }}
+                          </td>
+                          <td>
+                            <div >
+                              {% if category in worker.works.all %}
+                                  <input data-id="{{category.id}}" data-wid="{{worker.id}}" style="float: right; width: 20px; height: 20px; cursor: pointer;" class="status-change" type="checkbox" checked>
+                                  {% else %}
+                                  <input data-id="{{category.id}}" data-wid="{{worker.id}}" style="float: right; width: 20px; height: 20px; cursor: pointer;" class="status-change" type="checkbox">
+                              {% endif %}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {% endfor %}
+                          
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {% endfor %}
+              
+          </div>
+        </div>
+        <!-- content-wrapper ends -->
+        <!-- partial:partials/_footer.html -->
+        <footer class="footer">
+          <div class="d-sm-flex justify-content-center justify-content-sm-between">
+            <span class="text-muted text-center text-sm-left d-block d-sm-inline-block">Copyright © 2018 <a href="https://www.urbanui.com/" target="_blank">Urbanui</a>. All rights reserved.</span>
+            <span class="float-none float-sm-right d-block mt-1 mt-sm-0 text-center">Hand-crafted & made with <i class="mdi mdi-heart text-danger"></i></span>
+          </div>
+        </footer>
+        <!-- partial -->
+      </div>
+
+      <script src="/static/js/jquery.min.js"></script>
+
+      <script>
+
+        $('.status-change').on('change', function(){
+          let status = $(this).prop("checked")
+          let id = $(this).data("id")
+          let wid = $(this).data("wid")
+          $.ajax({
+            url:'/usta/status_work/',
+            type:'get',
+            data:{
+              'status':status,
+              'id':id,
+              'wid':wid
+            },
+            success:function(response){
+              console.log(response['response'])
+            }
+          })
+        })
+
+      </script>
+       
+      {% endblock wrapper %}

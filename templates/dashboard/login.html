@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Workers.uz — Kirish</title>
+  <link rel="stylesheet" href="/static/vendors/mdi/css/materialdesignicons.min.css">
+  <link rel="shortcut icon" href="/static/images/favicon.png" />
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'Roboto',system-ui,sans-serif;min-height:100vh;background:#eef1f7;}
+    .auth-wrap{display:flex;min-height:100vh;}
+
+    /* CHAP TOMON — brending / logo */
+    .auth-brand{flex:1;position:relative;overflow:hidden;color:#fff;
+        background:linear-gradient(135deg,#4d83ff 0%,#7859df 100%);
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        text-align:center;padding:48px;}
+    .auth-brand::before,.auth-brand::after{content:"";position:absolute;border-radius:50%;
+        background:rgba(255,255,255,.10);}
+    .auth-brand::before{width:340px;height:340px;top:-90px;left:-90px;}
+    .auth-brand::after{width:260px;height:260px;bottom:-70px;right:-70px;}
+    .brand-inner{position:relative;z-index:1;}
+    /* Logo joyi — kelajakda bu yerga o'z rasmingizni qo'ying:
+       <img src="/media/logo.png"> yoki <img src="/static/images/logo.png"> */
+    .logo-slot{width:110px;height:110px;border-radius:28px;margin:0 auto 26px;
+        background:rgba(255,255,255,.16);border:2px solid rgba(255,255,255,.3);
+        display:flex;align-items:center;justify-content:center;font-size:56px;}
+    .logo-slot img{max-width:80%;max-height:80%;border-radius:16px;}
+    .auth-brand h1{font-size:44px;font-weight:800;letter-spacing:1px;margin:0;}
+    .auth-brand p{font-size:16px;color:rgba(255,255,255,.85);margin:14px 0 0;max-width:340px;}
+
+    /* O'NG TOMON — kirish formasi */
+    .auth-form-side{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;}
+    .auth-box{width:100%;max-width:380px;}
+    .auth-box .title{font-size:26px;font-weight:800;color:#282f3a;margin:0 0 4px;}
+    .auth-box .sub{color:#9aa0ac;font-size:14px;margin:0 0 28px;}
+    .field{position:relative;margin-bottom:16px;}
+    .field > i{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#9aa0ac;font-size:20px;}
+    .field input{width:100%;border:1px solid #e6e9f0;border-radius:12px;
+        padding:14px 14px 14px 46px;font-size:15px;transition:.18s;background:#f9fafc;}
+    .field input:focus{outline:none;border-color:#4d83ff;background:#fff;box-shadow:0 0 0 4px rgba(77,131,255,.12);}
+    .toggle-eye{left:auto;right:15px;cursor:pointer;}
+    .btn-auth{width:100%;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;
+        cursor:pointer;transition:.18s;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;}
+    .btn-primary-auth{background:linear-gradient(135deg,#4d83ff,#7859df);color:#fff;box-shadow:0 8px 20px rgba(77,131,255,.30);}
+    .btn-primary-auth:hover{filter:brightness(1.05);}
+    .btn-worker{background:#eef3ff;color:#4d83ff;margin-top:12px;}
+    .btn-worker:hover{background:#e3ecff;}
+    .err{background:#ffeeee;color:#e23b3b;border-radius:10px;padding:11px 14px;font-size:13.5px;
+        margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+    .divider{text-align:center;color:#b4b9c4;font-size:12px;margin:18px 0 4px;}
+
+    /* MOBIL — ustma-ust; brending ixcham tepada */
+    @media (max-width: 860px){
+      .auth-wrap{flex-direction:column;}
+      .auth-brand{flex:none;padding:34px 24px;}
+      .auth-brand::before{width:200px;height:200px;top:-60px;left:-60px;}
+      .auth-brand::after{display:none;}
+      .logo-slot{width:74px;height:74px;border-radius:18px;font-size:36px;margin-bottom:16px;}
+      .auth-brand h1{font-size:30px;}
+      .auth-brand p{font-size:14px;}
+      .auth-form-side{flex:1;padding:30px 22px;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="auth-wrap">
+
+    <!-- CHAP: brending / logo -->
+    <div class="auth-brand">
+      <div class="brand-inner">
+        <div class="logo-slot">
+          <!-- Kelajakda o'z logongizni shu yerga qo'ying:
+               <img src="/static/images/logo.png" alt="logo"> -->
+          <i class="mdi mdi-sofa"></i>
+        </div>
+        <h1>Workers</h1>
+        <p>Mebel ishlab chiqarish korxonasini boshqarish tizimi</p>
+      </div>
+    </div>
+
+    <!-- O'NG: kirish formasi -->
+    <div class="auth-form-side">
+      <div class="auth-box">
+        <div class="title">Xush kelibsiz 👋</div>
+        <p class="sub">Davom etish uchun hisobingizga kiring</p>
+
+        {% if form.errors %}
+        <div class="err"><i class="mdi mdi-alert-circle"></i> Login yoki parol noto'g'ri. Qayta urinib ko'ring.</div>
+        {% endif %}
+        {% if request.GET.blocked %}
+        <div class="err"><i class="mdi mdi-lock"></i> Korxona obunasi bloklangan. Administrator bilan bog'laning.</div>
+        {% endif %}
+
+        <form method="post">{% csrf_token %}
+          <div class="field">
+            <i class="mdi mdi-account-outline"></i>
+            <input type="text" name="username" placeholder="Login" required autofocus>
+          </div>
+          <div class="field">
+            <i class="mdi mdi-lock-outline"></i>
+            <input type="password" name="password" id="pw" placeholder="Parol" required>
+            <i class="mdi mdi-eye-outline toggle-eye" id="eye" onclick="var p=document.getElementById('pw'),e=document.getElementById('eye');if(p.type==='password'){p.type='text';e.className='mdi mdi-eye-off-outline toggle-eye';}else{p.type='password';e.className='mdi mdi-eye-outline toggle-eye';}"></i>
+          </div>
+
+          <button class="btn-auth btn-primary-auth" type="submit"><i class="mdi mdi-login"></i> Kirish</button>
+          <div class="divider">yoki</div>
+          <a class="btn-auth btn-worker" href="/login/"><i class="mdi mdi-account-hard-hat"></i> Men ishchiman</a>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</body>
+
+</html>

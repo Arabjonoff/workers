@@ -1,0 +1,8 @@
+*.sqlite3
+venv/
+media/
+__pycache__/
+*.pyc
+local_database.py
+migrations/
+.DS_Store

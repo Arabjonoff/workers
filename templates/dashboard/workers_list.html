@@ -1,0 +1,138 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<div class="main-panel">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
+
+    <div class="page-hero">
+      <h2>👷 Ishchilar ro'yxati</h2>
+      <p>Barcha ishchilar, balanslari va bugungi holati</p>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap:10px;">
+          <div class="search-box">
+            <i class="mdi mdi-magnify"></i>
+            <input type="text" id="tbl_search" placeholder="Ishchi qidirish...">
+          </div>
+          <a href="/usta/add_worker/" class="btn btn-primary btn-modern">
+            <i class="mdi mdi-plus"></i> Ishchi qo'shish
+          </a>
+        </div>
+
+        <div class="table-responsive">
+          <table class="tbl-modern" id="workers_table">
+            <thead>
+              <tr>
+                <th>Ishchi</th>
+                <th>Telefon</th>
+                <th>Balansi</th>
+                <th>Bugungi ish haqqi</th>
+                <th>Ishlar soni</th>
+                <th>Keldi/Kelmadi</th>
+                <th>Amallar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for worker in workers %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center" style="gap:10px;">
+                    <span class="avatar">{{worker.user.first_name|first|upper}}</span>
+                    <a href="/usta/worker/{{worker.id}}" style="font-weight:600;color:#282f3a;">
+                      {{worker.user.first_name}} {{worker.user.last_name}}
+                    </a>
+                  </div>
+                </td>
+                <td>+998 {{worker.phone}}</td>
+                <td>
+                  {% if worker.balance == 0 %}
+                  <span class="badge-soft badge-gray">Mablag' yo'q</span>
+                  {% else %}
+                  <span class="badge-soft badge-green">{{worker.balance|intcomma}} so'm</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if worker.days.first.sum == 0 %}
+                  <span class="badge-soft badge-gray">Ish qilmagan</span>
+                  {% else %}
+                  <span class="badge-soft badge-blue">{{worker.days.first.sum|intcomma}} so'm</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if worker.works.all.count == 0 %}
+                  <span class="badge-soft badge-gray">Ish yo'q</span>
+                  {% elif worker.active == False %}
+                  <span class="badge-soft badge-amber">Bugun kelmadi</span>
+                  {% else %}
+                  <span class="badge-soft badge-blue">{{worker.works.all.count}} ta</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if worker.active == True %}
+                  <input type="checkbox" class="came switch-cb" data-id="{{worker.id}}" checked>
+                  {% else %}
+                  <input type="checkbox" class="came switch-cb" data-id="{{worker.id}}">
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <button type="button" class="act-btn act-red" title="O'chirish"
+                    data-bs-toggle="modal" data-bs-target="#delete{{worker.id}}"><i class="mdi mdi-delete"></i></button>
+
+                  <div class="modal fade" id="delete{{worker.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                      <div class="modal-header"><h5 class="modal-title">Ishchini o'chirasizmi?</h5></div>
+                      <form method="get">
+                        <div class="modal-body">
+                          {% if worker.balance > 0 %}
+                          <p class="mb-0">Oldin ishchining ish haqqini bering!</p>
+                          {% else %}
+                          <p class="text-danger mb-0">Ishchiga oid barcha ma'lumotlar o'chib ketadi!</p>
+                          {% endif %}
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                          {% if worker.balance > 0 %}{% else %}
+                          <a href="/usta/delete?type=delete_worker&worker={{worker.id}}" class="btn btn-danger">Ha, o'chirish</a>
+                          {% endif %}
+                        </div>
+                      </form>
+                    </div></div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+              <tr class="empty-row" id="no_results" style="display:none;"><td colspan="7">Hech narsa topilmadi</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('load', function () {
+    var $ = window.jQuery;
+    if ($) {
+      $('input.came').on('change', function () {
+        var $t = $(this);
+        $.ajax({ url:'/usta/worker_status/', type:'get', data:{id:$t.data('id'), status:$t.prop('checked')} });
+      });
+    }
+    var s = document.getElementById('tbl_search');
+    if (s) s.addEventListener('keyup', function () {
+      var q = this.value.toLowerCase(), rows = document.querySelectorAll('#workers_table tbody tr'), shown = 0;
+      rows.forEach(function(r){
+        if (r.id === 'no_results') return;
+        var m = r.cells[0] && r.cells[0].textContent.toLowerCase().indexOf(q) > -1;
+        r.style.display = m ? '' : 'none'; if (m) shown++;
+      });
+      document.getElementById('no_results').style.display = shown ? 'none' : '';
+    });
+  });
+</script>
+{% endblock wrapper %}

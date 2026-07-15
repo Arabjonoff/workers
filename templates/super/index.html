@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Super Admin — Korxonalar</title>
+  <link rel="stylesheet" href="/static/vendors/mdi/css/materialdesignicons.min.css">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'Roboto',system-ui,sans-serif;background:#eef1f7;color:#282f3a;}
+    .topbar{background:linear-gradient(135deg,#282f3a,#4d83ff);color:#fff;padding:16px 26px;
+        display:flex;align-items:center;justify-content:space-between;}
+    .topbar .b{display:flex;align-items:center;gap:12px;font-weight:800;font-size:18px;}
+    .topbar .b i{font-size:24px;}
+    .topbar a{color:rgba(255,255,255,.9);text-decoration:none;font-size:14px;font-weight:600;}
+    .wrap{max-width:1050px;margin:26px auto;padding:0 20px;}
+    .msg{padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:14px;}
+    .msg.success{background:#eafbe1;color:#4f9c14;}
+    .msg.error{background:#ffeeee;color:#e23b3b;}
+    .stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+    .stat{background:#fff;border-radius:14px;padding:18px 22px;box-shadow:0 4px 18px rgba(40,47,58,.06);
+        display:flex;align-items:center;gap:14px;flex:1;min-width:200px;}
+    .stat .ic{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+        color:#fff;font-size:24px;background:linear-gradient(135deg,#4d83ff,#7859df);}
+    .stat small{color:#9aa0ac;text-transform:uppercase;font-size:11px;letter-spacing:.4px;}
+    .stat b{font-size:22px;display:block;}
+    .card{background:#fff;border-radius:14px;box-shadow:0 4px 18px rgba(40,47,58,.06);padding:22px;}
+    .card-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
+    .card-head h3{margin:0;font-weight:700;}
+    .btn{border:none;border-radius:10px;padding:11px 20px;font-weight:600;cursor:pointer;font-size:14px;
+        text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+    .btn-primary{background:linear-gradient(135deg,#4d83ff,#7859df);color:#fff;}
+    .btn-light{background:#f1f3f7;color:#6b7280;}
+    .btn-sm{padding:7px 12px;font-size:13px;}
+    table{width:100%;border-collapse:separate;border-spacing:0;}
+    thead th{background:#f8f9fc;color:#9aa0ac;font-size:12px;text-transform:uppercase;letter-spacing:.4px;
+        padding:12px 14px;text-align:left;}
+    thead th:first-child{border-radius:10px 0 0 10px;}
+    thead th:last-child{border-radius:0 10px 10px 0;text-align:right;}
+    tbody td{padding:13px 14px;border-bottom:1px solid #f0f2f6;vertical-align:middle;}
+    .pill{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+    .pill.on{background:#eafbe1;color:#4f9c14;}
+    .pill.off{background:#ffeeee;color:#e23b3b;}
+    .code{background:#f1f3f7;border-radius:6px;padding:2px 8px;font-family:monospace;font-size:13px;}
+    /* modal */
+    .backdrop{position:fixed;inset:0;background:rgba(40,47,58,.5);display:none;align-items:center;
+        justify-content:center;z-index:50;padding:20px;}
+    .backdrop.show{display:flex;}
+    .modal{background:#fff;border-radius:16px;width:100%;max-width:460px;padding:26px;}
+    .modal h3{margin:0 0 18px;font-weight:700;}
+    .modal label{display:block;font-size:12px;color:#9aa0ac;text-transform:uppercase;letter-spacing:.4px;
+        margin:0 0 6px;font-weight:600;}
+    .modal input{width:100%;border:1px solid #e6e9f0;border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:14px;}
+    .modal input:focus{outline:none;border-color:#4d83ff;box-shadow:0 0 0 3px rgba(77,131,255,.12);}
+    .modal .row2{display:flex;gap:12px;}
+    .modal .row2>div{flex:1;}
+    .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
+    .empty{text-align:center;color:#9aa0ac;padding:30px;}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="b"><i class="mdi mdi-shield-crown"></i> Super Admin</div>
+    <a href="/super/logout/"><i class="mdi mdi-logout"></i> Chiqish</a>
+  </div>
+
+  <div class="wrap">
+    {% for m in messages %}
+    <div class="msg {{ m.tags }}">{{ m }}</div>
+    {% endfor %}
+
+    <div class="stats">
+      <div class="stat"><div class="ic"><i class="mdi mdi-office-building"></i></div>
+        <div><small>Jami korxonalar</small><b>{{ total_companies }}</b></div></div>
+      <div class="stat"><div class="ic" style="background:linear-gradient(135deg,#71c016,#93d63f);"><i class="mdi mdi-check-decagram"></i></div>
+        <div><small>Faol</small><b>{{ active_companies }}</b></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h3>Korxonalar</h3>
+        <button class="btn btn-primary" onclick="document.getElementById('bd').classList.add('show')">
+          <i class="mdi mdi-plus"></i> Korxona qo'shish
+        </button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Korxona</th><th>Login</th><th>Ishchilar</th><th>Holati</th><th>Amal</th></tr></thead>
+          <tbody>
+            {% for row in data %}
+            <tr>
+              <td>
+                <b>{{ row.company.name }}</b>
+                {% if row.company.phone %}<div style="color:#9aa0ac;font-size:13px;">{{ row.company.phone }}</div>{% endif %}
+              </td>
+              <td><span class="code">{{ row.admin.user.username|default:"—" }}</span></td>
+              <td>{{ row.workers }} ta</td>
+              <td>
+                {% if row.company.is_active %}<span class="pill on">Faol</span>
+                {% else %}<span class="pill off">Bloklangan</span>{% endif %}
+              </td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-light btn-sm" onclick="document.getElementById('ed{{ row.company.id }}').classList.add('show')">
+                  <i class="mdi mdi-pencil"></i> Tahrirlash
+                </button>
+                <a href="/super/toggle/{{ row.company.id }}/" class="btn btn-light btn-sm">
+                  {% if row.company.is_active %}<i class="mdi mdi-lock"></i> Bloklash{% else %}<i class="mdi mdi-lock-open"></i> Faollashtirish{% endif %}
+                </a>
+
+                <!-- Tahrirlash modali -->
+                <div class="backdrop" id="ed{{ row.company.id }}">
+                  <div class="modal" style="text-align:left;">
+                    <h3>{{ row.company.name }} — tahrirlash</h3>
+                    <form method="post" action="/super/edit/{{ row.company.id }}/">{% csrf_token %}
+                      <label>Korxona nomi</label>
+                      <input name="name" value="{{ row.company.name }}" required>
+                      <label>Admin login (username)</label>
+                      <input name="username" value="{{ row.admin.user.username }}" required>
+                      <label>Yangi parol <span style="text-transform:none;color:#b4b9c4;">— bo'sh qoldirsangiz o'zgarmaydi</span></label>
+                      <input name="password" type="text" placeholder="Yangi parol">
+                      <div class="modal-foot">
+                        <button type="button" class="btn btn-light" onclick="document.getElementById('ed{{ row.company.id }}').classList.remove('show')">Bekor</button>
+                        <button type="submit" class="btn btn-primary">Saqlash</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="empty">Hozircha korxona yo'q. "Korxona qo'shish" tugmasini bosing.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: korxona qo'shish -->
+  <div class="backdrop" id="bd">
+    <div class="modal">
+      <h3>Yangi korxona</h3>
+      <form method="post" action="/super/add/">{% csrf_token %}
+        <label>Korxona nomi</label>
+        <input name="name" placeholder="Masalan: Sifat Mebel" required>
+        <label>Telefon (ixtiyoriy)</label>
+        <input name="phone" placeholder="+998 ..">
+        <div class="row2">
+          <div><label>Admin login</label><input name="username" placeholder="login" required></div>
+          <div><label>Parol</label><input name="password" placeholder="parol" required></div>
+        </div>
+        <label>Rahbar ismi (ixtiyoriy)</label>
+        <input name="first_name" placeholder="Ism">
+        <div class="modal-foot">
+          <button type="button" class="btn btn-light" onclick="document.getElementById('bd').classList.remove('show')">Bekor</button>
+          <button type="submit" class="btn btn-primary">Qo'shish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.backdrop').forEach(function(bd){
+      bd.addEventListener('click', function(e){ if (e.target === this) this.classList.remove('show'); });
+    });
+  </script>
+</body>
+</html>

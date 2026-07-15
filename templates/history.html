@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ishlar tarixi</title>
+  <link rel="stylesheet" href="/static/vendors/mdi/css/materialdesignicons.min.css" />
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    body{margin:0;font-family:'Roboto',system-ui,sans-serif;background:#f4f6fb;color:#282f3a;padding-bottom:76px;}
+    .topbar{position:sticky;top:0;z-index:20;background:#4d83ff;padding:16px 16px 12px;
+        box-shadow:0 4px 16px rgba(77,131,255,.25);}
+    .topbar h1{margin:0 0 12px;color:#fff;font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;}
+    .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+    .chips::-webkit-scrollbar{display:none;}
+    .chip{flex-shrink:0;text-decoration:none;background:rgba(255,255,255,.22);color:#fff;
+        padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;white-space:nowrap;}
+    .chip.active{background:#fff;color:#4d83ff;}
+    .list{padding:16px;display:flex;flex-direction:column;gap:12px;}
+    .day{background:#fff;border-radius:16px;box-shadow:0 3px 14px rgba(40,47,58,.06);overflow:hidden;}
+    .day-head{display:flex;align-items:center;gap:12px;padding:15px 16px;cursor:pointer;}
+    .day-date{width:46px;height:46px;border-radius:12px;background:#eef3ff;color:#4d83ff;flex-shrink:0;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;}
+    .day-date .d{font-size:18px;font-weight:800;}
+    .day-date .m{font-size:10px;text-transform:uppercase;margin-top:2px;}
+    .day-info{flex:1;}
+    .day-info .t{font-size:14px;font-weight:600;}
+    .day-sum{color:#4f9c14;font-weight:700;font-size:15px;}
+    .chev{color:#c3c8d4;font-size:24px;transition:.2s;}
+    .day.open .chev{transform:rotate(180deg);}
+    .day-body{display:none;padding:0 16px 8px;}
+    .day.open .day-body{display:block;}
+    .wrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid #f2f4f8;}
+    .wrow .n{font-size:14px;color:#3c4657;}
+    .wrow .q{background:#f1f3f7;color:#6b7280;font-weight:600;font-size:12.5px;padding:4px 11px;border-radius:20px;white-space:nowrap;}
+    .empty{text-align:center;color:#9aa0ac;padding:60px 30px;}
+    .empty i{font-size:60px;color:#e2e6ee;display:block;margin-bottom:14px;}
+    footer{position:fixed;left:0;right:0;bottom:0;height:56px;background:#fff;border-top:1px solid #eceff4;display:flex;z-index:21;}
+    footer a{flex:1;display:flex;align-items:center;justify-content:center;color:#b4b9c4;font-size:24px;text-decoration:none;}
+    footer a.active{color:#4d83ff;}
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h1><i class="mdi mdi-history"></i> Ishlar tarixi</h1>
+    <div class="chips">
+      <a href="/history/" class="chip {% if not request.GET.filter %}active{% endif %}">Hammasi</a>
+      {% for m in months %}
+      <a href="?filter={{m}}" class="chip {% if request.GET.filter == m %}active{% endif %}">{{m}}</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="list">
+    {% for day in days %}
+    <div class="day">
+      <div class="day-head" onclick="this.parentNode.classList.toggle('open')">
+        <div class="day-date">
+          <span class="d">{{ day.date|date:"d" }}</span>
+          <span class="m">{{ day.date|date:"M" }}</span>
+        </div>
+        <div class="day-info">
+          <div class="t">{{ day.date|date:"d F, Y" }}</div>
+          <div class="day-sum">{{ day.sum|intcomma }} so'm</div>
+        </div>
+        <i class="mdi mdi-chevron-down chev"></i>
+      </div>
+      <div class="day-body">
+        {% for work in day.theworks.all %}
+        {% if work.count or work.length %}
+        <div class="wrow">
+          <span class="n">{{ work.category.name|truncatechars:34 }}</span>
+          <span class="q">
+            {% if work.category.type == 'dona' %}{{ work.count }} dona{% else %}{{ work.length }} metr{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        {% empty %}
+        <div class="wrow"><span class="n" style="color:#9aa0ac;">Ish yo'q</span></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty">
+      <i class="mdi mdi-calendar-blank-outline"></i>
+      <h3>Tarix bo'sh</h3>
+      <p>Bu davr uchun ma'lumot yo'q.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <footer>
+    <a href="/history/" class="active"><i class="mdi mdi-history"></i></a>
+    <a href="/"><i class="mdi mdi-home"></i></a>
+    <a href="/profile/"><i class="mdi mdi-account-outline"></i></a>
+    <a href="/logout/"><i class="mdi mdi-logout"></i></a>
+  </footer>
+
+</body>
+</html>

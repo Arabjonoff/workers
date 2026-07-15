@@ -1,0 +1,256 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+
+<style>
+    .profile-head{background:linear-gradient(135deg,#4d83ff 0%,#7859df 100%);border-radius:16px;
+        color:#fff;padding:26px 28px;margin-bottom:24px;box-shadow:0 10px 30px rgba(77,131,255,.25);}
+    .profile-avatar{width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.2);
+        display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;}
+    .profile-head h2{color:#fff;font-weight:700;margin:0;font-size:24px;}
+    .profile-head .meta{color:rgba(255,255,255,.85);font-size:14px;}
+    .pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,255,255,.2);}
+    .pstat{background:rgba(255,255,255,.14);border-radius:12px;padding:12px 16px;min-width:130px;}
+    .pstat small{color:rgba(255,255,255,.8);font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+    .pstat b{font-size:17px;font-weight:700;display:block;margin-top:2px;}
+    .p-tabs{border:none;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+    .p-tabs .nav-link{border:none;border-radius:10px;color:#6b7280;font-weight:600;padding:10px 18px;background:#f2f4f8;}
+    .p-tabs .nav-link.active{background:linear-gradient(135deg,#4d83ff,#7859df);color:#fff;box-shadow:0 6px 16px rgba(77,131,255,.28);}
+</style>
+
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <!-- Profil sarlavhasi -->
+        <div class="profile-head">
+            <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap:18px;">
+                <div class="d-flex align-items-center" style="gap:18px;">
+                    <div class="profile-avatar">{{worker.user.first_name|first|upper}}</div>
+                    <div>
+                        <h2>{{worker.user.first_name}} {{worker.user.last_name}}</h2>
+                        <div class="meta">
+                            <i class="mdi mdi-phone"></i> +998 {{worker.phone}}
+                            &nbsp;·&nbsp;
+                            {% if worker.active %}<span class="pill">🟢 Faol</span>{% else %}<span class="pill">⚪ Nofaol</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap" style="gap:10px;">
+                    <div class="pstat"><small>Balansi</small><b>{{worker.balance|intcomma}} so'm</b></div>
+                    <div class="pstat"><small>Olgan puli</small><b>{{worker.got_balance|intcomma}} so'm</b></div>
+                    <div class="pstat"><small>Jarima</small><b>{{worker.bugs_sum|intcomma}} so'm</b></div>
+                    <div class="pstat"><small>Ish turlari</small><b>{{worker.works.all.count}} ta</b></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tablar -->
+        <ul class="nav p-tabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-info" type="button"><i class="mdi mdi-account"></i> Ma'lumotlar</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-works" type="button"><i class="mdi mdi-history"></i> Ish tarixi</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pay" type="button"><i class="mdi mdi-cash-multiple"></i> To'lov tarixi</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bugs" type="button"><i class="mdi mdi-flag"></i> Jarimalar</button></li>
+        </ul>
+
+        <div class="tab-content">
+
+            <!-- MA'LUMOTLAR -->
+            <div class="tab-pane fade show active" id="tab-info">
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Shaxsiy ma'lumotlar</h4>
+                        <form class="form-modern" method="post"> {% csrf_token %}
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Ismi</label>
+                                    <input type="text" class="form-control" name="first_name" required value="{{worker.user.first_name}}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Familiyasi</label>
+                                    <input type="text" class="form-control" name="last_name" required value="{{worker.user.last_name}}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Telefon raqami</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend"><div class="input-group-text">+998</div></div>
+                                        <input type="number" data-id="{{ request.user.admin.id }}" id="phone" class="form-control" name="phone" required value="{{worker.user.username}}" />
+                                    </div>
+                                    <small class="text-primary" id="message"></small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Uy telefon raqami</label>
+                                    <input type="number" class="form-control" name="homenumber" value="{{worker.home_phone}}"/>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Tug'ilgan sanasi</label>
+                                    <input type="date" class="form-control" name="birth" required value="{{worker.birth|date:'Y-m-d' }}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Manzili</label>
+                                    <input type="text" class="form-control" name="address" required value="{{worker.address}}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Yangi parol</label>
+                                    <input type="text" class="form-control" name="password" placeholder="Bo'sh qoldirsangiz o'zgarmaydi" />
+                                    <div class="form-hint">Ishchi login uchun yangi parol o'rnatish</div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-content-save"></i> O'zgartirish</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ISH TARIXI -->
+            <div class="tab-pane fade" id="tab-works">
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap:12px;">
+                            <h4 class="card-title mb-0">Ishlar tarixi</h4>
+                            <label class="mb-0" style="font-size:13px;color:#6b7280;cursor:pointer;">
+                                <input type="checkbox" class="show-other switch-cb" style="vertical-align:middle;"> 0 summali ishlarni ko'rsatish
+                            </label>
+                        </div>
+                        <form method="get" class="form-modern row mb-3" style="gap:0;">
+                            <div class="col-md-3 mb-2"><input type="date" class="form-control" name="start_date" value="{{filter_date.start_date}}"></div>
+                            <div class="col-md-3 mb-2"><input type="date" class="form-control" name="end_date" value="{{filter_date.end_date}}"></div>
+                            <div class="col-md-2 mb-2"><button class="btn btn-primary btn-modern w-100" type="submit">Filterlash</button></div>
+                        </form>
+
+                        <div class="table-responsive">
+                            <table class="tbl-modern">
+                                <thead><tr><th>#</th><th>Sana</th><th>Summa</th><th>Olgan ishlari</th><th>Amal</th></tr></thead>
+                                <tbody>
+                                    {% for day in days.all %}
+                                    <tr>
+                                        <td>{{forloop.counter}}</td>
+                                        <td>{{day.date.date}}</td>
+                                        <td>
+                                            {% if day.sum == 0 %}<span class="badge-soft badge-gray">Ish qilmagan</span>
+                                            {% else %}<span class="badge-soft badge-green">{{day.sum|intcomma}} so'm</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if day.theworks.all.count == 0 %}<span class="badge-soft badge-gray">Ish olmagan</span>
+                                            {% else %}<span class="badge-soft badge-blue">{{day.theworks.all.count}} dona</span>{% endif %}
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <button class="act-btn act-blue" data-bs-toggle="modal" data-bs-target="#worklist{{day.id}}"><i class="mdi mdi-eye"></i></button>
+
+                                            <div class="modal fade" id="worklist{{day.id}}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg"><div class="modal-content">
+                                                    <div class="modal-header"><h5 class="modal-title">{{day.date.date}} — ishlar</h5></div>
+                                                    <div class="modal-body">
+                                                        <table class="tbl-modern">
+                                                            <thead><tr><th>Ish nomi</th><th>Soni/Uzunligi</th><th>Summasi</th><th>O'zgartirish</th></tr></thead>
+                                                            <tbody>
+                                                                {% for work in day.theworks.all %}
+                                                                <tr {% if work.sum == 0 %}class="other"{% endif %}>
+                                                                    <td>{{work.category.name}}</td>
+                                                                    <td>
+                                                                        {% if work.category.type == 'dona' %}{{work.count}} ta{% else %}{{work.length}} metr{% endif %}
+                                                                        <div><input data-id="{{work.id}}" id="edit{{work.id}}" class="form-control form-control-sm editor mt-1" type="number" value="{% if work.category.type == 'dona' %}{{work.count}}{% else %}{{work.length}}{% endif %}"></div>
+                                                                    </td>
+                                                                    <td>{{work.sum|intcomma}} <small>so'm</small></td>
+                                                                    <td style="text-align:right;">
+                                                                        <button type="button" data-target="#edit{{work.id}}" class="act-btn act-amber open-editor"><i class="mdi mdi-pencil"></i></button>
+                                                                    </td>
+                                                                </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                                                    </div>
+                                                </div></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TO'LOV TARIXI -->
+            <div class="tab-pane fade" id="tab-pay">
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">Berilgan to'lovlar tarixi</h4>
+                        <div class="table-responsive">
+                            <table class="tbl-modern">
+                                <thead><tr><th>#</th><th>Sana</th><th>Summa</th><th>Izoh</th></tr></thead>
+                                <tbody>
+                                    {% for h in worker.balance_history.all %}
+                                    {% if not h.deleted %}
+                                    <tr>
+                                        <td>{{forloop.counter}}</td>
+                                        <td>{{h.created.date}}</td>
+                                        <td><span class="badge-soft badge-green">{{h.got_sum|intcomma}} so'm</span></td>
+                                        <td>{{h.comment|default:"—"}}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% empty %}
+                                    <tr class="empty-row"><td colspan="4">To'lovlar mavjud emas</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JARIMALAR -->
+            <div class="tab-pane fade" id="tab-bugs">
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">Jarimalar</h4>
+                        <div class="table-responsive">
+                            <table class="tbl-modern">
+                                <thead><tr><th>#</th><th>Sana</th><th>Summa</th><th>Sababi</th></tr></thead>
+                                <tbody>
+                                    {% for b in worker.bugs.all %}
+                                    <tr>
+                                        <td>{{forloop.counter}}</td>
+                                        <td>{{b.date.date}}</td>
+                                        <td><span class="badge-soft badge-amber">{{b.price|intcomma}} so'm</span></td>
+                                        <td>{{b.info}}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr class="empty-row"><td colspan="4">Jarimalar yo'q</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('load', function () {
+        var $ = window.jQuery;
+        if (!$) return;
+        $('.other').hide();
+        $('.show-other').on('change', function () {
+            $(this).prop('checked') ? $('.other').show() : $('.other').hide();
+        });
+        $('.editor').hide();
+        $('.open-editor').on('click', function () {
+            var edit = $(this).data('target');
+            $(edit).show();
+            $(edit).off('change').on('change', function () {
+                $.ajax({ url:'/ajax_work_counter/' + $(this).data('id'), type:'get',
+                    data:{value:$(this).val()}, success:function(r){ console.log(r['status']); } });
+            });
+        });
+    });
+</script>
+{% endblock wrapper %}

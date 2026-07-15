@@ -1,0 +1,264 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+
+<style>
+    :root{
+        --c-primary:#4d83ff;--c-warning:#ffc100;--c-success:#71c016;
+        --c-danger:#ff4747;--c-purple:#7859df;--c-dark:#282f3a;
+    }
+    .gm-hero{
+        background:linear-gradient(135deg,var(--c-primary) 0%,var(--c-purple) 100%);
+        border-radius:16px;color:#fff;padding:22px 28px;margin-bottom:24px;
+        box-shadow:0 10px 30px rgba(77,131,255,.25);
+    }
+    .gm-hero h2{color:#fff;font-weight:700;margin-bottom:4px;font-size:22px;}
+    .gm-hero p{color:rgba(255,255,255,.85);margin:0;}
+    .stat-card{background:#fff;border:none;border-radius:14px;padding:18px 20px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);height:100%;display:flex;align-items:center;gap:14px;}
+    .stat-ic{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;
+        justify-content:center;font-size:24px;color:#fff;flex-shrink:0;}
+    .stat-card small{color:#9aa0ac;text-transform:uppercase;font-size:11px;letter-spacing:.4px;}
+    .stat-card h4{font-weight:700;margin:2px 0 0;color:var(--c-dark);font-size:19px;}
+    .bg-p{background:linear-gradient(135deg,#4d83ff,#6f9cff);}
+    .bg-w{background:linear-gradient(135deg,#ffc100,#ffd44d);}
+    .bg-s{background:linear-gradient(135deg,#71c016,#93d63f);}
+    .soft-card{background:#fff;border:none;border-radius:14px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);margin-bottom:24px;}
+    .soft-card .card-body{padding:24px;}
+    .soft-card .card-title{font-weight:700;color:var(--c-dark);margin-bottom:18px;}
+    .gm-form label{font-size:12px;color:#9aa0ac;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+    .gm-form .form-control{border-radius:10px;border:1px solid #e6e9f0;padding:11px 14px;height:auto;}
+    .gm-form .form-control:focus{border-color:var(--c-primary);box-shadow:0 0 0 3px rgba(77,131,255,.12);}
+    .balance-hint{background:#f5f8ff;border:1px solid #e0e9ff;border-radius:10px;
+        padding:10px 14px;color:var(--c-primary);font-weight:600;font-size:13px;display:none;margin-top:8px;}
+    .btn-modern{border-radius:10px;padding:10px 22px;font-weight:600;}
+    .tbl-modern{width:100%;border-collapse:separate;border-spacing:0;}
+    .tbl-modern thead th{background:#f8f9fc;color:#9aa0ac;font-size:12px;text-transform:uppercase;
+        letter-spacing:.4px;padding:12px 16px;border:none;text-align:left;}
+    .tbl-modern thead th:first-child{border-radius:10px 0 0 10px;}
+    .tbl-modern thead th:last-child{border-radius:0 10px 10px 0;text-align:right;}
+    .tbl-modern tbody td{padding:14px 16px;border-bottom:1px solid #f0f2f6;vertical-align:middle;}
+    .tbl-modern tbody tr:hover{background:#fafbff;}
+    .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4d83ff,#7859df);
+        color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;
+        font-size:14px;margin-right:10px;}
+    .amount-badge{background:#eafbe1;color:#4f9c14;font-weight:700;padding:5px 12px;border-radius:20px;font-size:13px;}
+    .search-box{position:relative;max-width:280px;}
+    .search-box input{border-radius:10px;border:1px solid #e6e9f0;padding:9px 14px 9px 38px;width:100%;}
+    .search-box i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9aa0ac;}
+    .act-btn{border:none;border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;}
+    .act-info{background:#eef3ff;color:var(--c-primary);}
+    .act-del{background:#ffeeee;color:var(--c-danger);}
+    .empty-row td{text-align:center;color:#9aa0ac;padding:34px;}
+</style>
+
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <!-- Hero -->
+        <div class="gm-hero">
+            <h2>💵 Pul berish</h2>
+            <p>Ishchilarga to'lov qilish va berilgan pullar tarixi</p>
+        </div>
+
+        <!-- Stat cards -->
+        <div class="row">
+            <div class="col-md-4 col-12 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-s"><i class="mdi mdi-cash-check"></i></div>
+                    <div><small>Jami berilgan</small><h4>{{total_given|intcomma}} so'm</h4></div>
+                </div>
+            </div>
+            <div class="col-md-4 col-12 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-p"><i class="mdi mdi-account-cash"></i></div>
+                    <div><small>Pul olganlar</small><h4>{{recipients}} ta ishchi</h4></div>
+                </div>
+            </div>
+            <div class="col-md-4 col-12 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-w"><i class="mdi mdi-wallet-outline"></i></div>
+                    <div><small>Berilishi kerak</small><h4>{{to_pay|intcomma}} so'm</h4></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pul berish form -->
+        <div class="card soft-card">
+            <div class="card-body">
+                <h4 class="card-title">Yangi to'lov</h4>
+                <form class="gm-form" method="post"> {% csrf_token %}
+                    <div class="row align-items-end">
+                        <div class="col-md-5 mb-3">
+                            <label class="d-block">Ishchi</label>
+                            <select name="worker" required class="form-control" id="worker_choice">
+                                <option value="">Ishchini tanlang</option>
+                                {% for worker in request.user.admin.workers.all %}
+                                <option value="{{worker.id}}">{{worker.user.first_name}} {{worker.user.last_name}}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="balance-hint" id="balance_hint"></div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="d-block">Summa (so'm)</label>
+                            <input type="number" class="form-control" id="price" name="price" placeholder="0" required />
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button type="submit" class="btn btn-primary btn-modern w-100">
+                                <i class="mdi mdi-check"></i> Tasdiqlash
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Berilgan pullar table -->
+        <div class="card soft-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                    <h4 class="card-title mb-0">Berilgan pullar</h4>
+                    <div class="d-flex align-items-center" style="gap:10px;">
+                        <div class="search-box">
+                            <i class="mdi mdi-magnify"></i>
+                            <input type="text" id="tbl_search" placeholder="Ishchi qidirish...">
+                        </div>
+                        <button class="btn btn-danger btn-sm btn-modern" data-bs-toggle="modal" data-bs-target="#deleteall">
+                            <i class="mdi mdi-delete-sweep"></i> Barchasi
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="deleteall" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                        <div class="modal-header"><h5 class="modal-title">Barcha tarixni o'chirish</h5></div>
+                        <div class="modal-body"><span class="text-danger">Hamma ishchiga berilgan pullar tarixi butunlay o'chib ketadi!</span></div>
+                        <div class="modal-footer">
+                            <a href="/usta/delete/?type=balance_all" class="btn btn-danger">Tasdiqlash</a>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                        </div>
+                    </div></div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="tbl-modern" id="gm_table">
+                        <thead>
+                            <tr><th>Ishchi</th><th>Summa</th><th>Sana</th><th>Amallar</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for worker in workers %}
+                            {% if worker.got_balance > 0 %}
+                            <tr>
+                                <td>
+                                    <span class="avatar">{{worker.user.first_name|first|upper}}</span>
+                                    {{worker.user.first_name}} {{worker.user.last_name}}
+                                </td>
+                                <td><span class="amount-badge">{{worker.got_balance|intcomma}} so'm</span></td>
+                                <td>{{worker.balance_history.last.created.date}}</td>
+                                <td style="text-align:right;">
+                                    <button class="act-btn act-info" data-bs-toggle="modal" data-bs-target="#worklist{{worker.id}}">
+                                        <i class="mdi mdi-eye"></i> Batafsil
+                                    </button>
+                                    <button class="act-btn act-del" data-bs-toggle="modal" data-bs-target="#delete{{worker.id}}">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
+
+                                    <!-- Detail modal -->
+                                    <div class="modal fade" id="worklist{{worker.id}}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog"><div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">{{worker.user.first_name}} {{worker.user.last_name}} — to'lovlar</h5>
+                                            </div>
+                                            <div class="modal-body">
+                                                <table class="tbl-modern">
+                                                    <thead><tr><th>Sana</th><th>Summasi</th></tr></thead>
+                                                    <tbody>
+                                                        {% for history in worker.balance_history.all %}
+                                                        {% if history.deleted == False %}
+                                                        <tr>
+                                                            <td>{{history.created.date}}</td>
+                                                            <td style="text-align:right;">{{history.got_sum|intcomma}} so'm</td>
+                                                        </tr>
+                                                        {% endif %}
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                                            </div>
+                                        </div></div>
+                                    </div>
+
+                                    <!-- Delete modal -->
+                                    <div class="modal fade" id="delete{{worker.id}}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog"><div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">{{worker.user.first_name}} {{worker.user.last_name}}</h5>
+                                            </div>
+                                            <div class="modal-body">
+                                                <span class="text-danger">Ushbu ishchiga berilgan pullar tarixi butunlay o'chib ketadi!</span>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <a href="/usta/delete/?type=gave_money&worker={{worker.id}}" class="btn btn-danger">Tasdiqlash</a>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                                            </div>
+                                        </div></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                            <tr class="empty-row" id="no_results" style="display:none;">
+                                <td colspan="4">Hech narsa topilmadi</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    window.addEventListener('load', function () {
+        var $ = window.jQuery;
+        if ($) {
+            // Ishchi tanlanganda joriy balansni ko'rsatish va summaga qo'yish
+            $('#worker_choice').on('change', function () {
+                var id = $(this).val();
+                if (!id) { $('#balance_hint').hide(); $('#price').val(''); return; }
+                $.ajax({ url:'/usta/give_money/', type:'get', data:{worker_id:id},
+                    success:function(r){
+                        var b = Number(r['balance']) || 0;
+                        $('#price').val(b);
+                        $('#balance_hint').html("Joriy balans: " + b.toLocaleString('ru-RU') + " so'm").show();
+                    }
+                });
+            });
+        }
+        // Jadval qidiruvi (client-side)
+        var search = document.getElementById('tbl_search');
+        if (search) {
+            search.addEventListener('keyup', function () {
+                var q = this.value.toLowerCase();
+                var rows = document.querySelectorAll('#gm_table tbody tr');
+                var shown = 0;
+                rows.forEach(function(row){
+                    if (row.id === 'no_results') return;
+                    var name = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
+                    var match = name.indexOf(q) > -1;
+                    row.style.display = match ? '' : 'none';
+                    if (match) shown++;
+                });
+                document.getElementById('no_results').style.display = shown ? 'none' : '';
+            });
+        }
+    });
+</script>
+
+{% endblock wrapper %}

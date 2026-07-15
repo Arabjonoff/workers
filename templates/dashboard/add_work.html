@@ -1,0 +1,51 @@
+{% extends 'dashboard/wrapper.html' %}
+
+{% block wrapper %}
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <div class="page-hero">
+            <h2>➕ Ish qo'shish</h2>
+            <p>Yangi ish turini narxi va o'lchov birligi bilan qo'shing</p>
+        </div>
+
+        <div class="card soft-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+                    <h4 class="card-title mb-0">Ish ma'lumotlari</h4>
+                    <a href="/usta/works/" class="btn btn-light btn-modern">
+                        <i class="mdi mdi-arrow-left"></i> Ro'yxatga qaytish
+                    </a>
+                </div>
+
+                <form class="form-modern" method="post"> {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-5 mb-3">
+                            <label class="fm-label">Ish nomi</label>
+                            <input type="text" class="form-control" name="name" placeholder="Masalan: Burchak yig'ish" required/>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="fm-label">Narxi (so'm)</label>
+                            <input type="number" class="form-control" name="price" placeholder="0" required/>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="fm-label">O'lchov birligi</label>
+                            <select name="type" required class="form-control">
+                                <option value="dona">Dona</option>
+                                <option value="metr">Metr</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button type="submit" class="btn btn-primary btn-modern">
+                            <i class="mdi mdi-check"></i> Ish qo'shish
+                        </button>
+                        <button type="reset" class="btn btn-light btn-modern">Tozalash</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock wrapper %}

@@ -1,0 +1,239 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+<!-- partial -->
+
+{% block wrapper %}
+
+<style>
+    :root{
+        --c-primary:#4d83ff;
+        --c-warning:#ffc100;
+        --c-success:#71c016;
+        --c-danger:#ff4747;
+        --c-purple:#7859df;
+        --c-dark:#282f3a;
+    }
+    .dash-hero{
+        background:linear-gradient(135deg,var(--c-primary) 0%,var(--c-purple) 100%);
+        border-radius:16px;color:#fff;padding:26px 30px;margin-bottom:24px;
+        box-shadow:0 10px 30px rgba(77,131,255,.25);
+    }
+    .dash-hero h2{color:#fff;font-weight:700;margin-bottom:6px;}
+    .dash-hero p{color:rgba(255,255,255,.85);margin:0;}
+    .stat-card{
+        background:#fff;border:none;border-radius:14px;padding:20px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);transition:.2s;height:100%;
+    }
+    .stat-card:hover{transform:translateY(-4px);box-shadow:0 10px 26px rgba(40,47,58,.12);}
+    .stat-ic{
+        width:52px;height:52px;border-radius:14px;display:flex;align-items:center;
+        justify-content:center;font-size:26px;color:#fff;margin-bottom:14px;
+    }
+    .stat-card small{color:#9aa0ac;text-transform:uppercase;font-size:11px;letter-spacing:.5px;}
+    .stat-card h4{font-weight:700;margin:6px 0 0;color:var(--c-dark);}
+    .bg-primary-soft{background:linear-gradient(135deg,#4d83ff,#6f9cff);}
+    .bg-warning-soft{background:linear-gradient(135deg,#ffc100,#ffd44d);}
+    .bg-success-soft{background:linear-gradient(135deg,#71c016,#93d63f);}
+    .bg-danger-soft{background:linear-gradient(135deg,#ff4747,#ff7676);}
+    .chart-card{
+        background:#fff;border:none;border-radius:14px;padding:22px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);height:100%;margin-bottom:24px;
+    }
+    .chart-card .title{font-weight:700;color:var(--c-dark);margin-bottom:2px;font-size:16px;}
+    .chart-card .sub{color:#9aa0ac;font-size:12px;margin-bottom:16px;}
+    .list-card{background:#fff;border:none;border-radius:14px;box-shadow:0 4px 18px rgba(40,47,58,.06);}
+    .list-card .card-title{font-weight:700;color:var(--c-dark);}
+    .list-card table{margin-bottom:0;}
+    .list-card table td,.list-card table th{border-color:#f0f2f6;vertical-align:middle;}
+</style>
+
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <!-- Hero -->
+        <div class="dash-hero">
+            <h2>Xush kelibsiz, {{ admin.user.first_name|default:admin.user.username }} 👋</h2>
+            <p>Mebel ishlab chiqarish korxonangiz bo'yicha umumiy ko'rsatkichlar</p>
+        </div>
+
+        <!-- Stat cards -->
+        <div class="row">
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-primary-soft"><i class="mdi mdi-cash-multiple"></i></div>
+                    <small>Berilgan summa</small>
+                    <h4>{{admin.gave_money|intcomma}} <span style="font-size:13px;color:#9aa0ac;">so'm</span></h4>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-warning-soft"><i class="mdi mdi-wallet-outline"></i></div>
+                    <small>Berilishi kerak</small>
+                    <h4>{{admin.workers_money|intcomma}} <span style="font-size:13px;color:#9aa0ac;">so'm</span></h4>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-success-soft"><i class="mdi mdi-account-multiple"></i></div>
+                    <small>Ishchilar soni</small>
+                    <h4>{{admin.workers.all.count}} <span style="font-size:13px;color:#9aa0ac;">ta</span></h4>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-card">
+                    <div class="stat-ic bg-danger-soft"><i class="mdi mdi-flag-outline"></i></div>
+                    <small>Jarimalar</small>
+                    <h4>{{admin.bugs_money|intcomma}} <span style="font-size:13px;color:#9aa0ac;">so'm</span></h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trend + Financial doughnut -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="chart-card">
+                    <div class="title">So'nggi 14 kunlik ish hajmi</div>
+                    <div class="sub">Kunlik jami ishlab chiqarilgan summa (so'm)</div>
+                    <canvas id="trendChart" height="110"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <div class="title">Moliyaviy holat</div>
+                    <div class="sub">Umumiy taqsimot</div>
+                    <canvas id="finChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bar charts: workers + categories -->
+        <div class="row mb-2">
+            <div class="col-lg-6">
+                <div class="chart-card">
+                    <div class="title">Eng ko'p pul olishi kerak ishchilar</div>
+                    <div class="sub">Top 7 — balans bo'yicha</div>
+                    <canvas id="workerChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="chart-card">
+                    <div class="title">Eng qimmat ishlar</div>
+                    <div class="sub">Top 7 — narx bo'yicha</div>
+                    <canvas id="catChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <footer class="footer">
+        <div class="d-sm-flex justify-content-center justify-content-sm-between">
+            <span class="text-muted text-center text-sm-left d-block d-sm-inline-block">Copyright © Workers</span>
+            <span class="float-none float-sm-right d-block mt-1 mt-sm-0 text-center">Mebel ishlab chiqarish tizimi</span>
+        </div>
+    </footer>
+</div>
+
+{{ trend_labels|json_script:"trend_labels" }}
+{{ trend_values|json_script:"trend_values" }}
+{{ worker_labels|json_script:"worker_labels" }}
+{{ worker_values|json_script:"worker_values" }}
+{{ cat_labels|json_script:"cat_labels" }}
+{{ cat_values|json_script:"cat_values" }}
+<script id="fin_data" type="application/json">[{{ fin_gave|default:0 }}, {{ fin_todo|default:0 }}, {{ fin_bugs|default:0 }}]</script>
+
+<script>
+    // Grafiklar Chart.js (wrapper oxirida ulanadi) yuklangach ishga tushadi.
+    window.addEventListener('load', function () {
+        if (typeof Chart === 'undefined') { console.error('Chart.js yuklanmadi'); return; }
+
+        var C = {primary:'#4d83ff', warning:'#ffc100', success:'#71c016', danger:'#ff4747', purple:'#7859df'};
+        function J(id){ var el=document.getElementById(id); return el ? JSON.parse(el.textContent) : []; }
+        var money = function(v){ return Number(v).toLocaleString('ru-RU') + " so'm"; };
+        var kfmt = function(v){ return v>=1000000?(v/1000000)+'mln':(v>=1000?(v/1000)+'k':v); };
+        // Har bir grafik alohida — biri xato bersa, boshqalari ishlashda davom etadi.
+        function guard(fn){ try { fn(); } catch(e){ console.error('Chart error:', e); } }
+
+        Chart.defaults.global.defaultFontColor = '#9aa0ac';
+        Chart.defaults.global.defaultFontFamily = "'Roboto', sans-serif";
+
+        // 1) Trend line (area)
+        guard(function(){
+            var ctx = document.getElementById('trendChart').getContext('2d');
+            var grad = ctx.createLinearGradient(0,0,0,260);
+            grad.addColorStop(0,'rgba(77,131,255,.28)');
+            grad.addColorStop(1,'rgba(77,131,255,0)');
+            new Chart(ctx,{
+                type:'line',
+                data:{ labels:J('trend_labels'), datasets:[{
+                    label:'Kunlik summa', data:J('trend_values'),
+                    borderColor:C.primary, backgroundColor:grad, borderWidth:3,
+                    pointBackgroundColor:'#fff', pointBorderColor:C.primary, pointBorderWidth:2,
+                    pointRadius:4, pointHoverRadius:6, fill:true, lineTension:.35
+                }]},
+                options:{ responsive:true, maintainAspectRatio:true, legend:{display:false},
+                    tooltips:{callbacks:{label:function(t){return money(t.yLabel);}}},
+                    scales:{ yAxes:[{gridLines:{color:'#f0f2f6',drawBorder:false},
+                        ticks:{callback:kfmt}}], xAxes:[{gridLines:{display:false}}] }
+                }
+            });
+        });
+
+        // 2) Financial doughnut
+        guard(function(){
+            var ctx = document.getElementById('finChart').getContext('2d');
+            new Chart(ctx,{
+                type:'doughnut',
+                data:{ labels:['Berilgan','Berilishi kerak','Jarima'],
+                    datasets:[{ data:J('fin_data'),
+                        backgroundColor:[C.success,C.primary,C.danger], borderWidth:0 }]},
+                options:{ responsive:true, cutoutPercentage:68,
+                    legend:{position:'bottom', labels:{boxWidth:12,padding:14}},
+                    tooltips:{callbacks:{label:function(t,d){return d.labels[t.index]+': '+money(d.datasets[0].data[t.index]);}}}
+                }
+            });
+        });
+
+        // 3) Workers horizontal bar
+        guard(function(){
+            var ctx = document.getElementById('workerChart').getContext('2d');
+            new Chart(ctx,{
+                type:'horizontalBar',
+                data:{ labels:J('worker_labels'), datasets:[{
+                    data:J('worker_values'), backgroundColor:C.purple, barPercentage:.6 }]},
+                options:{ responsive:true, legend:{display:false},
+                    tooltips:{callbacks:{label:function(t){return money(t.xLabel);}}},
+                    scales:{ xAxes:[{gridLines:{color:'#f0f2f6',drawBorder:false},
+                        ticks:{callback:kfmt}}], yAxes:[{gridLines:{display:false}}] }
+                }
+            });
+        });
+
+        // 4) Categories bar
+        guard(function(){
+            var ctx = document.getElementById('catChart').getContext('2d');
+            new Chart(ctx,{
+                type:'bar',
+                data:{ labels:J('cat_labels'), datasets:[{
+                    data:J('cat_values'), backgroundColor:C.warning, barPercentage:.6 }]},
+                options:{ responsive:true, legend:{display:false},
+                    tooltips:{callbacks:{label:function(t){return money(t.yLabel);}}},
+                    scales:{ yAxes:[{gridLines:{color:'#f0f2f6',drawBorder:false},
+                        ticks:{callback:kfmt}}], xAxes:[{gridLines:{display:false}}] }
+                }
+            });
+        });
+
+        // status-change (jQuery vendor bundle'da mavjud)
+        if (window.jQuery) {
+            jQuery('.status-change').on('change', function () {
+                var $t = jQuery(this);
+                jQuery.ajax({ url:'/status_work/', type:'get',
+                    data:{status:$t.prop('checked'), id:$t.data('id'), wid:$t.data('wid')},
+                    success:function(r){ console.log(r['response']); } });
+            });
+        }
+    });
+</script>
+
+{% endblock wrapper %}

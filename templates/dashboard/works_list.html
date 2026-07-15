@@ -1,0 +1,156 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<div class="main-panel">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
+
+    <div class="page-hero">
+      <h2>📋 Ishlar ro'yxati</h2>
+      <p>Korxonadagi ish turlari, narxlari va ishchilarga biriktirilishi</p>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap:10px;">
+          <div class="search-box">
+            <i class="mdi mdi-magnify"></i>
+            <input type="text" id="tbl_search" placeholder="Ish qidirish...">
+          </div>
+          <a href="/usta/add_work/" class="btn btn-primary btn-modern">
+            <i class="mdi mdi-plus"></i> Ish qo'shish
+          </a>
+        </div>
+
+        <div class="table-responsive">
+          <table class="tbl-modern" id="works_table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ish nomi</th>
+                <th>Narxi</th>
+                <th>Birligi</th>
+                <th>Amallar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for work in works %}
+              <tr>
+                <td>{{forloop.counter}}</td>
+                <td style="font-weight:600;color:#282f3a;">{{ work.name }}</td>
+                <td><span class="badge-soft badge-green">{{ work.price|intcomma }} so'm</span></td>
+                <td><span class="badge-soft badge-blue">{{ work.type }}</span></td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button type="button" class="act-btn act-blue" title="Ishchilarga biriktirish"
+                    data-bs-toggle="modal" data-bs-target="#plan{{work.id}}"><i class="mdi mdi-account-multiple-check"></i></button>
+                  <button type="button" class="act-btn act-amber" title="Tahrirlash"
+                    data-bs-toggle="modal" data-bs-target="#edit{{work.id}}"><i class="mdi mdi-pencil"></i></button>
+                  <button type="button" class="act-btn act-red" title="O'chirish"
+                    data-bs-toggle="modal" data-bs-target="#delete{{work.id}}"><i class="mdi mdi-delete"></i></button>
+
+                  <!-- Modal: ishchilarga biriktirish -->
+                  <div class="modal fade" id="plan{{work.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                      <div class="modal-header"><h5 class="modal-title">{{work.name}} — ishchilar</h5></div>
+                      <div class="modal-body">
+                        <table class="tbl-modern">
+                          <thead><tr><th>Ishchi</th><th>Holati</th></tr></thead>
+                          <tbody>
+                            {% for worker in request.user.admin.workers.all %}
+                            <tr>
+                              <td>{{ worker.user.first_name }} {{ worker.user.last_name }}</td>
+                              <td style="text-align:right;">
+                                <label class="ios-switch">
+                                  {% if work in worker.works.all %}
+                                  <input data-id="{{work.id}}" data-wid="{{worker.id}}" class="status-change" type="checkbox" checked>
+                                  {% else %}
+                                  <input data-id="{{work.id}}" data-wid="{{worker.id}}" class="status-change" type="checkbox">
+                                  {% endif %}
+                                  <span class="ios-slider"></span>
+                                </label>
+                              </td>
+                            </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                      </div>
+                    </div></div>
+                  </div>
+
+                  <!-- Modal: tahrirlash -->
+                  <div class="modal fade" id="edit{{work.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                      <div class="modal-header"><h5 class="modal-title">Ishni tahrirlash</h5></div>
+                      <form method="post" class="form-modern">{% csrf_token %}
+                        <div class="modal-body">
+                          <label class="fm-label">Ish nomi</label>
+                          <input name="name" type="text" class="form-control mb-3" value="{{work.name}}" required>
+                          <label class="fm-label">Ish narxi</label>
+                          <input name="price" type="text" class="form-control" value="{{work.price}}" required>
+                          <input type="text" name="id" style="display:none;" value="{{work.id}}">
+                          <p class="text-warning mt-3 mb-0" style="font-size:13px;">Boshqa ma'lumotlarni o'zgartirib bo'lmaydi.</p>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                          <button type="submit" class="btn btn-primary">Saqlash</button>
+                        </div>
+                      </form>
+                    </div></div>
+                  </div>
+
+                  <!-- Modal: o'chirish -->
+                  <div class="modal fade" id="delete{{work.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                      <div class="modal-header"><h5 class="modal-title">Ishni o'chirasizmi?</h5></div>
+                      <form method="get">
+                        <div class="modal-body">
+                          <input type="text" name="id" style="display:none;" value="{{work.id}}">
+                          <p class="text-danger mb-0">Ishga oid barcha ma'lumotlar o'chib ketadi!</p>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yo'q</button>
+                          <button type="submit" class="btn btn-danger">Ha, o'chirish</button>
+                        </div>
+                      </form>
+                    </div></div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+              <tr class="empty-row" id="no_results" style="display:none;"><td colspan="5">Hech narsa topilmadi</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('load', function () {
+    var $ = window.jQuery;
+    if ($) {
+      $('.status-change').on('change', function () {
+        var $t = $(this);
+        $.ajax({ url:'/usta/status_work/', type:'get',
+          data:{status:$t.prop('checked'), id:$t.data('id'), wid:$t.data('wid')},
+          success:function(r){ console.log(r['response']); } });
+      });
+    }
+    var s = document.getElementById('tbl_search');
+    if (s) s.addEventListener('keyup', function () {
+      var q = this.value.toLowerCase(), rows = document.querySelectorAll('#works_table tbody tr'), shown = 0;
+      rows.forEach(function(r){
+        if (r.id === 'no_results') return;
+        var m = r.cells[1] && r.cells[1].textContent.toLowerCase().indexOf(q) > -1;
+        r.style.display = m ? '' : 'none'; if (m) shown++;
+      });
+      document.getElementById('no_results').style.display = shown ? 'none' : '';
+    });
+  });
+</script>
+{% endblock wrapper %}

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Workers Admin</title>
+  <!-- plugins:css -->
+  <link rel="stylesheet" href="/static/vendors/mdi/css/materialdesignicons.min.css">
+  <link rel="stylesheet" href="/static/vendors/base/vendor.bundle.base.css">
+  <!-- endinject -->
+  <!-- plugin css for this page -->
+  <link rel="stylesheet" href="/static/vendors/datatables.net-bs4/dataTables.bootstrap4.css">
+  <!-- End plugin css for this page -->
+  <!-- inject:css -->
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- endinject -->
+  <link rel="shortcut icon" href="/static/images/favicon.png" />
+  <style>
+    :root{--c-primary:#4d83ff;--c-purple:#7859df;--c-dark:#282f3a;}
+    /* Topbar */
+    .navbar{box-shadow:0 2px 14px rgba(40,47,58,.04);}
+    .navbar .navbar-brand.brand-logo{font-weight:800;font-size:22px;
+        background:linear-gradient(135deg,#4d83ff,#7859df);-webkit-background-clip:text;
+        background-clip:text;-webkit-text-fill-color:transparent;}
+    /* Sidebar */
+    .sidebar{background:#fff !important;box-shadow:2px 0 22px rgba(40,47,58,.06);border:none;}
+    .sidebar .nav{padding:16px 12px;}
+    .sidebar .nav .nav-item{margin-bottom:3px;}
+    .sidebar .nav .nav-item .nav-link{
+        display:flex;align-items:center;gap:12px;border-radius:12px;padding:11px 14px;
+        color:#6b7280 !important;font-weight:500;transition:.18s;white-space:nowrap;}
+    .sidebar .nav .nav-item .nav-link .menu-icon{margin:0;font-size:20px;color:#9aa0ac;min-width:22px;transition:.18s;}
+    .sidebar .nav .nav-item .nav-link .menu-title{margin:0;font-size:14px;}
+    .sidebar .nav .nav-item .nav-link:hover{background:#f2f6ff;color:var(--c-primary) !important;}
+    .sidebar .nav .nav-item .nav-link:hover .menu-icon{color:var(--c-primary);}
+    .sidebar .nav .nav-item .nav-link.active{
+        background:linear-gradient(135deg,#4d83ff,#7859df);color:#fff !important;
+        box-shadow:0 6px 16px rgba(77,131,255,.32);}
+    .sidebar .nav .nav-item .nav-link.active .menu-icon{color:#fff;}
+    .sidebar .menu-section{font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+        color:#b4b9c4;padding:16px 16px 6px;font-weight:700;}
+
+    /* ===== Umumiy zamonaviy komponentlar ===== */
+    .page-hero{background:linear-gradient(135deg,#4d83ff 0%,#7859df 100%);border-radius:16px;
+        color:#fff;padding:22px 28px;margin-bottom:24px;box-shadow:0 10px 30px rgba(77,131,255,.25);}
+    .page-hero h2{color:#fff;font-weight:700;margin:0 0 4px;font-size:22px;}
+    .page-hero p{color:rgba(255,255,255,.85);margin:0;}
+    .soft-card{background:#fff;border:none;border-radius:14px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);margin-bottom:24px;}
+    .soft-card .card-body{padding:24px;}
+    .soft-card .card-title{font-weight:700;color:#282f3a;}
+    .form-modern .fm-label{display:block;font-size:12px;color:#9aa0ac;text-transform:uppercase;
+        letter-spacing:.4px;margin-bottom:6px;font-weight:600;}
+    .form-modern .form-control{border-radius:10px;border:1px solid #e6e9f0;padding:11px 14px;height:auto;}
+    .form-modern .form-control:focus{border-color:#4d83ff;box-shadow:0 0 0 3px rgba(77,131,255,.12);outline:none;}
+    .form-modern .input-group-text{border-radius:10px 0 0 10px;border:1px solid #e6e9f0;background:#f5f7fb;color:#6b7280;}
+    .form-modern .input-group .form-control{border-radius:0 10px 10px 0;}
+    .btn-modern{border-radius:10px;padding:10px 24px;font-weight:600;}
+    .form-hint{font-size:12px;color:#9aa0ac;margin-top:5px;}
+    .stat-card{background:#fff;border:none;border-radius:14px;padding:18px 20px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);height:100%;display:flex;align-items:center;gap:14px;}
+    .stat-ic{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;
+        justify-content:center;font-size:24px;color:#fff;flex-shrink:0;}
+    .stat-card small{color:#9aa0ac;text-transform:uppercase;font-size:11px;letter-spacing:.4px;}
+    .stat-card h4{font-weight:700;margin:2px 0 0;color:#282f3a;font-size:19px;}
+
+    /* Zamonaviy jadval + yordamchilar */
+    .tbl-modern{width:100%;border-collapse:separate;border-spacing:0;}
+    .tbl-modern thead th{background:#f8f9fc;color:#9aa0ac;font-size:12px;text-transform:uppercase;
+        letter-spacing:.4px;padding:12px 16px;border:none;text-align:left;white-space:nowrap;}
+    .tbl-modern thead th:first-child{border-radius:10px 0 0 10px;}
+    .tbl-modern thead th:last-child{border-radius:0 10px 10px 0;text-align:right;}
+    .tbl-modern tbody td{padding:13px 16px;border-bottom:1px solid #f0f2f6;vertical-align:middle;}
+    .tbl-modern tbody tr:hover{background:#fafbff;}
+    .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#4d83ff,#7859df);
+        color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex-shrink:0;}
+    .badge-soft{padding:5px 12px;border-radius:20px;font-size:12.5px;font-weight:600;display:inline-block;white-space:nowrap;}
+    .badge-green{background:#eafbe1;color:#4f9c14;}
+    .badge-blue{background:#eef3ff;color:#4d83ff;}
+    .badge-gray{background:#f1f3f7;color:#8a90a0;}
+    .badge-amber{background:#fff6e0;color:#d69a00;}
+    .search-box{position:relative;max-width:260px;}
+    .search-box input{border-radius:10px;border:1px solid #e6e9f0;padding:9px 14px 9px 38px;width:100%;}
+    .search-box input:focus{border-color:#4d83ff;box-shadow:0 0 0 3px rgba(77,131,255,.12);outline:none;}
+    .search-box i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9aa0ac;}
+    .act-btn{border:none;border-radius:9px;padding:7px 11px;font-size:15px;font-weight:600;cursor:pointer;line-height:1;}
+    .act-blue{background:#eef3ff;color:#4d83ff;}
+    .act-amber{background:#fff6e0;color:#d69a00;}
+    .act-red{background:#ffeeee;color:#ff4747;}
+    .act-btn:hover{filter:brightness(.95);}
+    .switch-cb{width:20px;height:20px;cursor:pointer;accent-color:#4d83ff;}
+    .empty-row td{text-align:center;color:#9aa0ac;padding:34px;}
+
+    /* iOS uslubidagi toggle switch */
+    .ios-switch{position:relative;display:inline-block;width:46px;height:28px;vertical-align:middle;}
+    .ios-switch input{opacity:0;width:0;height:0;position:absolute;margin:0;}
+    .ios-slider{position:absolute;top:0;left:0;right:0;bottom:0;background:#e6e9f0;
+        border-radius:28px;transition:.25s;cursor:pointer;}
+    .ios-slider:before{content:"";position:absolute;height:24px;width:24px;left:2px;top:2px;
+        background:#fff;border-radius:50%;transition:.25s;box-shadow:0 2px 5px rgba(0,0,0,.2);}
+    .ios-switch input:checked + .ios-slider{background:#34c759;}
+    .ios-switch input:checked + .ios-slider:before{transform:translateX(18px);}
+
+    /* ================= MOBIL ================= */
+    .sidebar-backdrop{position:fixed;top:60px;left:0;right:0;bottom:0;
+        background:rgba(40,47,58,.45);z-index:10;opacity:0;visibility:hidden;transition:.25s;}
+    .sidebar-backdrop.show{opacity:1;visibility:visible;}
+
+    @media (max-width: 991px){
+        /* Navbar ixchamroq */
+        .navbar .navbar-brand.brand-logo{font-size:18px;}
+        .navbar .navbar-menu-wrapper{padding-left:10px;padding-right:8px;}
+        .navbar-nav-right .nav-link .text{display:none;}          /* faqat ikonka */
+        .navbar-nav-right .dropdown-toggle::after{display:none;}    /* karetni yashirish */
+        .navbar-nav-right .nav-item{margin-right:.15rem !important;}
+        .navbar-nav-right .nav-link{padding:8px 10px !important;}
+        .navbar-nav-right .nav-link i{font-size:20px;}
+
+        /* Kontent bo'shlig'i */
+        .content-wrapper{padding:16px !important;}
+        .gm-hero,.dash-hero{padding:18px 20px;}
+        .gm-hero h2,.dash-hero h2{font-size:18px;}
+
+        /* Sidebar to'liq balandlik + kattaroq tap-target */
+        #sidebar{width:272px;right:-272px;}
+        #sidebar.active{right:0;box-shadow:-6px 0 30px rgba(40,47,58,.25);}
+        .sidebar .nav .nav-item .nav-link{padding:13px 16px;}
+
+        /* Kartalar orasidagi bo'shliq */
+        .stat-card{padding:16px;}
+        .soft-card .card-body{padding:18px;}
+    }
+
+    @media (max-width: 767px){
+        /* Fiksatsiya qilingan kenglikdagi modallar ekranga sig'sin */
+        .modal-content{width:auto !important;}
+        .modal-dialog{margin:.5rem;}
+        /* Statistika sarlavhalari kichikroq */
+        .stat-card h4{font-size:17px;}
+        /* Jadvalni gorizontal aylantirish silliq bo'lsin */
+        .table-responsive{-webkit-overflow-scrolling:touch;}
+        /* Qidiruv qutisi to'liq kenglik */
+        .search-box{max-width:100% !important;width:100%;}
+        .d-flex.justify-content-between.align-items-center.flex-wrap > .d-flex{width:100%;margin-top:10px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="container-scroller">
+    <!-- partial:partials/_navbar.html -->
+    <nav class="navbar col-lg-12 col-12 p-0 fixed-top d-flex flex-row">
+            <div class="navbar-brand-wrapper d-flex justify-content-center">
+        <div class="navbar-brand-inner-wrapper d-flex justify-content-between align-items-center w-100">  
+          <a class="navbar-brand brand-logo" href="/usta/">Workers.uz</a>
+          <button class="navbar-toggler navbar-toggler align-self-center" type="button" data-toggle="minimize">
+            <span class="mdi mdi-sort-variant"></span>
+          </button>
+        </div>  
+      </div>
+      <div class="navbar-menu-wrapper d-flex align-items-center justify-content-end">
+        <ul class="navbar-nav mr-lg-4 w-100">
+          <li class="nav-item nav-search d-none d-lg-block w-100">
+            <form action="/usta/search/" method="get">
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="search">
+                    <i class="mdi mdi-magnify"></i>
+                  </span>
+                </div>
+                <input type="text" class="form-control" placeholder="Qidirish" name="query">
+              </div>
+            </form>
+          </li>
+        </ul>
+        <ul class="navbar-nav navbar-nav-right">
+          <li class="nav-item nav-profile dropdown">
+            <a class="dropdown-item" href="/usta/logout/">
+              <i class="mdi mdi-logout text-primary"></i>
+              Chiqish
+            </a>
+          </li>
+        </ul>
+        <button class="navbar-toggler navbar-toggler-right d-lg-none align-self-center" type="button" data-toggle="offcanvas">
+          <span class="mdi mdi-menu"></span>
+        </button>
+      </div>
+    </nav>
+    <!-- partial -->
+    <div class="container-fluid page-body-wrapper">
+      <!-- partial:partials/_sidebar.html -->
+      <nav class="sidebar sidebar-offcanvas" id="sidebar">
+        <ul class="nav">
+          <li class="menu-section">Asosiy</li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.path == '/usta/' %}active{% endif %}" href="/usta/">
+              <i class="mdi mdi-view-dashboard-outline menu-icon"></i>
+              <span class="menu-title">Bosh sahifa</span>
+            </a>
+          </li>
+
+          <li class="menu-section">Ishchilar</li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.path == '/usta/works/' %}active{% endif %}" href="/usta/works/">
+              <i class="mdi mdi-clipboard-outline menu-icon"></i>
+              <span class="menu-title">Ishlar Ro'yxati</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.path == '/usta/workers/' %}active{% endif %}" href="/usta/workers/">
+              <i class="mdi mdi-clipboard-account menu-icon"></i>
+              <span class="menu-title">Ishchilar Ro'yxati</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if '/give_money' in request.path %}active{% endif %}" href="/usta/give_money/">
+              <i class="mdi mdi-currency-usd menu-icon"></i>
+              <span class="menu-title">Pul berish</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if '/bugs' in request.path %}active{% endif %}" href="/usta/bugs/">
+              <i class="mdi mdi-flag-outline menu-icon"></i>
+              <span class="menu-title">Jarimalar</span>
+            </a>
+          </li>
+
+          <li class="menu-section">Mijozlar</li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-account-group menu-icon"></i>
+              <span class="menu-title">Haridorlar</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-truck-outline menu-icon"></i>
+              <span class="menu-title">Taminotchilar</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-account-check menu-icon"></i>
+              <span class="menu-title">Turli shaxslar</span>
+            </a>
+          </li>
+
+          <li class="menu-section">Moliya</li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-safe menu-icon"></i>
+              <span class="menu-title">Kassa</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-cart-outline menu-icon"></i>
+              <span class="menu-title">Sotuv</span>
+            </a>
+          </li>
+
+          <li class="menu-section">Ombor</li>
+          <li class="nav-item">
+            <a class="nav-link {% if '/products' in request.path %}active{% endif %}" href="/usta/products/">
+              <i class="mdi mdi-file-cabinet menu-icon"></i>
+              <span class="menu-title">Mahsulotlar</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if '/storages' in request.path %}active{% endif %}" href="/usta/storages/">
+              <i class="mdi mdi-database menu-icon"></i>
+              <span class="menu-title">Ombor</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-arrow-down-bold-box-outline menu-icon"></i>
+              <span class="menu-title">Mahsulot kirim</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/usta/">
+              <i class="mdi mdi-arrow-up-bold-box-outline menu-icon"></i>
+              <span class="menu-title">Mahsulot chiqim</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      
+      {% block wrapper %}
+        
+      {% endblock wrapper %}
+        
+
+      <!-- main-panel ends -->
+    </div>
+    <!-- page-body-wrapper ends -->
+  </div>
+  <!-- container-scroller -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+  <!-- plugins:js -->
+  <script src="/static/vendors/base/vendor.bundle.base.js"></script>
+  <!-- endinject -->
+  <!-- Plugin js for this page-->
+  <script src="/static/vendors/chart.js/Chart.min.js"></script>
+  <script src="/static/vendors/datatables.net/jquery.dataTables.js"></script>
+  <script src="/static/vendors/datatables.net-bs4/dataTables.bootstrap4.js"></script>
+  <!-- End plugin js for this page-->
+  <!-- inject:js -->
+  <script src="/static/js/off-canvas.js"></script>
+  <script src="/static/js/hoverable-collapse.js"></script>
+  <script src="/static/js/template.js"></script>
+  <!-- endinject -->
+  <!-- Custom js for this page-->
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/data-table.js"></script>
+  <script src="/static/js/jquery.dataTables.js"></script>
+  <script src="/static/js/dataTables.bootstrap4.js"></script>
+  <!-- End custom js for this page-->
+
+  <!-- Mobil menyu: backdrop + tashqariga bosib yopish -->
+  <script>
+    (function(){
+      function ready(fn){ document.readyState!='loading' ? fn() : document.addEventListener('DOMContentLoaded', fn); }
+      ready(function(){
+        var sidebar = document.getElementById('sidebar');
+        if(!sidebar) return;
+        var bd = document.createElement('div');
+        bd.className = 'sidebar-backdrop';
+        document.body.appendChild(bd);
+        function sync(){ sidebar.classList.contains('active') ? bd.classList.add('show') : bd.classList.remove('show'); }
+        // Hamburger tugmalari .active ni toggle qiladi — keyin backdrop'ni moslaymiz
+        document.querySelectorAll('[data-toggle="offcanvas"]').forEach(function(b){
+          b.addEventListener('click', function(){ setTimeout(sync, 10); });
+        });
+        // Backdrop bosilganda yopish
+        bd.addEventListener('click', function(){ sidebar.classList.remove('active'); sync(); });
+        // Menyudagi havola bosilganda mobil ekranda yopish
+        sidebar.querySelectorAll('.nav-link').forEach(function(l){
+          l.addEventListener('click', function(){ if(window.innerWidth <= 991){ sidebar.classList.remove('active'); sync(); } });
+        });
+      });
+    })();
+  </script>
+</body>
+
+</html>

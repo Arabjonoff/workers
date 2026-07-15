@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+{% load humanize %}
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ishlar ro'yxati</title>
+  <link rel="stylesheet" href="/static/vendors/mdi/css/materialdesignicons.min.css" />
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    body{margin:0;font-family:'Roboto',system-ui,sans-serif;background:#f4f6fb;color:#282f3a;
+        padding-bottom:170px;}
+    /* Top bar */
+    .topbar{position:sticky;top:0;z-index:20;background:#4d83ff;padding:16px 16px 14px;
+        box-shadow:0 4px 16px rgba(77,131,255,.25);}
+    .topbar h1{margin:0 0 12px;color:#fff;font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;}
+    .search{position:relative;}
+    .search i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#9aa0ac;font-size:20px;}
+    .search input{width:100%;border:none;border-radius:12px;padding:12px 14px 12px 44px;font-size:15px;
+        background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+    .search input:focus{outline:none;}
+    /* List */
+    .list{padding:16px;display:flex;flex-direction:column;gap:12px;}
+    .work-card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 3px 14px rgba(40,47,58,.06);}
+    .wc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;}
+    .wc-name{font-size:16px;font-weight:700;line-height:1.3;}
+    .wc-price{font-size:12.5px;color:#9aa0ac;margin-top:3px;white-space:nowrap;}
+    .stepper{display:flex;align-items:center;gap:10px;}
+    .step-btn{width:46px;height:46px;border:none;border-radius:12px;font-size:26px;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0;transition:.12s;}
+    .step-btn.minus{background:#fdecec;color:#e23b3b;}
+    .step-btn.plus{background:#eef3ff;color:#4d83ff;}
+    .step-btn:active{transform:scale(.92);}
+    .cnt-wrap{flex:1;position:relative;}
+    .cnt{width:100%;text-align:center;border:1px solid #e2e6ee;border-radius:12px;padding:11px 8px;
+        font-size:20px;font-weight:700;color:#282f3a;background:#fbfcfe;}
+    .cnt:focus{outline:none;border-color:#4d83ff;background:#fff;}
+    .unit{display:block;text-align:center;font-size:11px;color:#9aa0ac;margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
+    .wc-sum{margin-top:14px;padding-top:12px;border-top:1px dashed #eceff4;display:flex;
+        justify-content:space-between;align-items:center;}
+    .wc-sum span{color:#9aa0ac;font-size:13px;}
+    .wc-sum b{color:#4f9c14;font-size:16px;font-weight:700;}
+    .no-results{text-align:center;padding:30px;color:#9aa0ac;}
+    /* Bottom summary + save */
+    .bottombar{position:fixed;left:0;right:0;bottom:56px;z-index:20;padding:12px 16px;
+        background:#fff;box-shadow:0 -4px 20px rgba(40,47,58,.1);}
+    .totals{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+    .totals .lab{color:#9aa0ac;font-size:13px;}
+    .totals .cnt-total{font-size:13px;color:#6b7280;font-weight:600;}
+    .totals .grand{font-size:20px;font-weight:800;color:#282f3a;}
+    .save-btn{display:block;width:100%;border:none;border-radius:12px;padding:15px;background:#4d83ff;
+        color:#fff;font-size:16px;font-weight:700;text-align:center;text-decoration:none;}
+    .save-btn:active{background:#3b72f0;}
+    /* Footer nav */
+    footer{position:fixed;left:0;right:0;bottom:0;height:56px;background:#fff;border-top:1px solid #eceff4;
+        display:flex;z-index:21;}
+    footer a{flex:1;display:flex;align-items:center;justify-content:center;color:#b4b9c4;font-size:24px;text-decoration:none;}
+    footer a.active{color:#4d83ff;}
+    .absent{text-align:center;margin-top:90px;color:#9aa0ac;padding:0 30px;}
+    .absent i{font-size:60px;color:#e2e6ee;display:block;margin-bottom:14px;}
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h1><i class="mdi mdi-clipboard-list-outline"></i> Bugungi ishlar</h1>
+    <div class="search">
+      <i class="mdi mdi-magnify"></i>
+      <input type="text" id="search" placeholder="Ish qidirish..." onkeyup="performSearch()">
+    </div>
+  </div>
+
+  {% if request.user.worker.active == True %}
+  <div class="list" id="table">
+    {% for work in works %}
+    <div class="work-card items" data-id="{{work.id}}" data-price="{{work.category.price}}"
+         data-type="{{work.category.type}}" data-sum="{{work.sum}}">
+      <div class="wc-top">
+        <div>
+          <div class="wc-name name">{{ work.category.name }}</div>
+          <div class="wc-price">{{ work.category.price|intcomma }} so'm / {{ work.category.type }}</div>
+        </div>
+      </div>
+      <div class="stepper">
+        <button type="button" class="step-btn minus" onclick="step(this,-1)">−</button>
+        <div class="cnt-wrap">
+          {% if work.category.type == 'dona' %}
+          <input class="cnt" type="text" inputmode="numeric" value="{{ work.count }}">
+          {% else %}
+          <input class="cnt" type="text" inputmode="decimal" value="{{ work.length }}">
+          {% endif %}
+          <span class="unit">{{ work.category.type }}</span>
+        </div>
+        <button type="button" class="step-btn plus" onclick="step(this,1)">+</button>
+      </div>
+      <div class="wc-sum">
+        <span>Jami</span>
+        <b class="card-sum">{{ work.sum|intcomma }} so'm</b>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="bottombar">
+    <div class="totals">
+      <span class="lab">Umumiy (<span class="cnt-total">{{ request.user.worker.works.all.count }} ta ish</span>)</span>
+      <span class="grand" id="grand">{{ day.sum|intcomma }} so'm</span>
+    </div>
+    <a href="/" class="save-btn"><i class="mdi mdi-check-circle-outline"></i> Saqlash</a>
+  </div>
+
+  {% else %}
+  <div class="absent">
+    <i class="mdi mdi-calendar-remove"></i>
+    <h3>Bugun ishga kelmadingiz</h3>
+    <p>Ish belgilanmagan. Administrator bilan bog'laning.</p>
+  </div>
+  {% endif %}
+
+  <footer>
+    <a href="/history/"><i class="mdi mdi-history"></i></a>
+    <a href="/" class="active"><i class="mdi mdi-home"></i></a>
+    <a href="/profile/"><i class="mdi mdi-account-outline"></i></a>
+    <a href="/logout/"><i class="mdi mdi-logout"></i></a>
+  </footer>
+
+  <script>
+    function fmt(n){ return Number(Math.round(n)).toLocaleString('ru-RU'); }
+
+    function recalc(card){
+      var price = parseFloat(card.dataset.price) || 0;
+      var val = parseFloat(card.querySelector('.cnt').value.replace(',', '.')) || 0;
+      if (val < 0) val = 0;
+      var sum = price * val;
+      card.dataset.sum = sum;
+      card.querySelector('.card-sum').textContent = fmt(sum) + " so'm";
+      var total = 0;
+      document.querySelectorAll('.work-card').forEach(function(c){ total += parseFloat(c.dataset.sum) || 0; });
+      var g = document.getElementById('grand');
+      if (g) g.textContent = fmt(total) + " so'm";
+    }
+
+    function send(card){
+      var id = card.dataset.id;
+      var val = card.querySelector('.cnt').value.replace(',', '.') || 0;
+      fetch('/ajax_work_counter/' + id + '?value=' + encodeURIComponent(val)).catch(function(){});
+    }
+
+    function step(btn, dir){
+      var card = btn.closest('.work-card');
+      var input = card.querySelector('.cnt');
+      var step = card.dataset.type === 'dona' ? 1 : 1;
+      var val = parseFloat(input.value.replace(',', '.')) || 0;
+      val = val + dir * step;
+      if (val < 0) val = 0;
+      if (card.dataset.type === 'dona') val = Math.round(val);
+      input.value = val;
+      recalc(card);
+      send(card);
+    }
+
+    document.querySelectorAll('.cnt').forEach(function(inp){
+      inp.addEventListener('input', function(){ recalc(inp.closest('.work-card')); });
+      inp.addEventListener('change', function(){ send(inp.closest('.work-card')); });
+    });
+
+    // Qidiruv
+    function performSearch(){
+      var q = document.getElementById('search').value.trim().toUpperCase();
+      var cards = document.querySelectorAll('#table .items');
+      var shown = 0;
+      cards.forEach(function(c){
+        var name = c.querySelector('.name').textContent.toUpperCase();
+        var ok = name.indexOf(q) > -1;
+        c.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      });
+      var nr = document.getElementById('nr');
+      if (!shown && q.length){
+        if (!nr){ var d=document.createElement('div'); d.id='nr'; d.className='no-results'; d.textContent='Hech narsa topilmadi'; document.getElementById('table').appendChild(d); }
+      } else if (nr){ nr.remove(); }
+    }
+  </script>
+</body>
+</html>
