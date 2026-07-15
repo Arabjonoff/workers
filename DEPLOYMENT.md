@@ -86,13 +86,17 @@ python manage.py crontab remove && python manage.py crontab add
 
 ## Hozirgi holat / bajarilmagan ishlar
 
-- [ ] **DNS**: `workers.uz` domeni hali `45.82.176.240`ga yo'naltirilgan,
-      bu serverga (`5.104.108.235`) emas. A-yozuv to'g'irlangach:
-      ```bash
-      certbot --nginx -d workers.uz -d www.workers.uz
-      ```
-      buyrug'i bilan bepul SSL (Let's Encrypt) o'rnatish mumkin (certbot
-      serverda allaqachon o'rnatilgan).
+- [x] **DNS**: `workers.uz` va `www.workers.uz` — `5.104.108.235`ga to'g'ri
+      yo'naltirilgan.
+- [x] **SSL**: Let's Encrypt sertifikat o'rnatilgan (`certbot --nginx`),
+      HTTP→HTTPS avtomatik redirect ishlaydi, sertifikat certbot orqali
+      avtomatik yangilanadi (2026-10-13 gacha amal qiladi). `nginx` config
+      certbot tomonidan tahrirlangan (`/etc/nginx/sites-available/workers.uz`
+      ichida `# managed by Certbot` izohli qatorlarga e'tibor bering — bu
+      qatorlarni qo'lda o'chirmang).
+- [x] `SECURE_PROXY_SSL_HEADER`, `CSRF_COOKIE_SECURE`, `SESSION_COOKIE_SECURE`
+      sozlandi (`config/settings.py`) — Django endi nginx ortida ham
+      so'rov HTTPS ekanini to'g'ri aniqlaydi.
 - [ ] **Root parol**: birinchi deploy paytida chatda ochiq matnda yuborilgan
       edi — hali almashtirilmagan bo'lsa, serverda `passwd` orqali yangilang.
 - [x] Superuser (`/super/` panel) yaratilgan — login `superadmin`, parol
