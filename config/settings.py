@@ -36,6 +36,11 @@ if not DEBUG and SECRET_KEY == _DEV_SECRET_KEY:
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()]
 
+# nginx/gunicorn ortida HTTPS to'g'ri aniqlanishi uchun (secure cookie, redirect va h.k.)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+
 
 # Application definition
 
