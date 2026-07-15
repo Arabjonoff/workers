@@ -10,22 +10,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# .env fayl mavjud bo'lsa o'qiydi (server/lokal muhitga xos maxfiy qiymatlar uchun).
+# .env gitga qo'shilmaydi — namuna uchun .env.example ga qarang.
+load_dotenv(BASE_DIR / '.env')
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)4-fd$$hh*0qx--@dv)2_o3^)b8cy7^+x6tk(1^1tg!xa61)wk'
+_DEV_SECRET_KEY = 'django-insecure-)4-fd$$hh*0qx--@dv)2_o3^)b8cy7^+x6tk(1^1tg!xa61)wk'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('SECRET_KEY', _DEV_SECRET_KEY)
+if not DEBUG and SECRET_KEY == _DEV_SECRET_KEY:
+    raise RuntimeError(
+        "DEBUG=False bilan production'da ishga tushirilmoqda, lekin SECRET_KEY "
+        "environment variable orqali sozlanmagan. .env faylida SECRET_KEY o'rnating."
+    )
+
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()]
 
 
 # Application definition
@@ -80,7 +89,10 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+# DEBUG rejimida (mahalliy ishlab chiqish) hammaga ochiq; production'da
+# CORS_ALLOWED_ORIGINS orqali aniq domenlar ko'rsatilishi kerak.
+CORS_ORIGIN_ALLOW_ALL = DEBUG and not CORS_ALLOWED_ORIGINS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -123,10 +135,28 @@ LOGOUT_REDIRECT_URL = '/usta/login/'
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
+# DB_ENGINE=postgresql qilib environment variable o'rnatilsa PostgreSQL'ga
+# o'tadi, aks holda mahalliy ishlash uchun SQLite ishlatiladi (qo'shimcha
+# sozlash shart emas).
 
-from .local_database import DATABASE
-
-DATABASES = DATABASE
+if os.environ.get('DB_ENGINE') == 'postgresql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ['DB_NAME'],
+            'USER': os.environ['DB_USER'],
+            'PASSWORD': os.environ['DB_PASSWORD'],
+            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -164,8 +194,6 @@ USE_TZ = False
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
-
-import os
 
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'

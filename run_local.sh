@@ -13,7 +13,7 @@ pip install --upgrade pip -q
 # Eslatma: requirements.txt dagi Pillow==8.4.0 va psycopg2-binary yangi Python'da
 # xato berishi mumkin. SQLite uchun psycopg2 shart emas; moslamalar biroz bo'shatilgan.
 pip install -q Django==3.2.9 djangorestframework==3.12.4 dj-rest-auth==2.2.5 \
-    django-cors-headers==4.3.1 python-dateutil pytz requests django-crontab Pillow
+    django-cors-headers==4.3.1 python-dateutil pytz requests django-crontab Pillow python-dotenv
 
 echo ">> Migratsiyalar..."
 python manage.py makemigrations main dashboard api >/dev/null 2>&1 || true
