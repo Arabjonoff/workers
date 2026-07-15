@@ -1,38 +1,45 @@
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes, permission_classes, action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.authtoken.models import Token
 from django.http import JsonResponse
 from django.contrib.auth import authenticate
+from django.shortcuts import get_object_or_404
 from main.models import *
 from main.funcs import *
+from main.tenancy import get_request_company
 from .serializers import *
+from .mixins import TenantScopedViewSetMixin
 import json
 from dashboard.sms_sender import sender_code, sender_gived_money
 
 @api_view(['get'])
 def base_data(request):
-    gave_money = sum([i.mount for i in Payment.objects.filter(type=4)])
-    balance = sum([i.balance for i in WorkerProfile.objects.filter(active=True)])
-    bugs = sum([i.price for i in BugWork.objects.filter(worker__active=True)])
+    company = get_request_company(request.user)
+    if company is None:
+        return Response({'gave_money': 0, 'balance': 0, 'bugs': 0})
+    gave_money = sum([i.mount for i in Payment.objects.filter(type=4, company=company)])
+    balance = sum([i.balance for i in WorkerProfile.objects.filter(active=True, admin__company=company)])
+    bugs = sum([i.price for i in BugWork.objects.filter(worker__active=True, worker__admin__company=company)])
     return Response({
         'gave_money': gave_money,
         'balance': balance,
         'bugs': bugs,
     })
 
+@api_view(['get'])
 def get_date_model(request):
     date_model = DateModel.objects.last()
     if date_model:
         serializer = DateModelSerializer(date_model, many=False)
-        return JsonResponse(serializer.data)
+        return Response(serializer.data)
     else:
-        return JsonResponse({'error': 'no date model'})
+        return Response({'error': 'no date model'})
 
 
 class WorkListAPIView(APIView):
-    permission_classes = [IsAuthenticated]
     def get(self, request):
         day = create_daily_works(request.user)
         works = Work.objects.filter(day=day)
@@ -53,7 +60,7 @@ class WorkListAPIView(APIView):
     def post(self, request):
         works = request.data['works']
         for work in works:
-            work_obj = Work.objects.get(id=work['id'])
+            work_obj = get_object_or_404(Work, id=work['id'], day__worker__user=request.user)
             work_obj.count = int(work['count'])
             work_obj.length = float(work['length'])
             work_obj.sum = work['sum']
@@ -62,7 +69,6 @@ class WorkListAPIView(APIView):
 
 
 class HistoryAPIView(APIView):
-    permission_classes = [IsAuthenticated]
     def get(self, request):
         worker = WorkerProfile.objects.get(user=request.user)
         try:
@@ -76,9 +82,8 @@ class HistoryAPIView(APIView):
     
 
 class HistoryDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]
     def get(self, request, id):
-        day = Day.objects.get(id=id)
+        day = get_object_or_404(Day, id=id, worker__user=request.user)
         works = Work.objects.filter(day=day)
         works_serializer = WorksSerializer(works, many=True)
         day_serializer = DaysSerializer(day, many=False)
@@ -86,6 +91,8 @@ class HistoryDetailAPIView(APIView):
     
 
 class LoginAPIView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         phone = request.data['phone']
         password = request.data['password']
@@ -105,6 +112,8 @@ class LoginAPIView(APIView):
 
 
 class AdminLoginView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
@@ -121,19 +130,23 @@ class AdminLoginView(APIView):
             }, status=400)
     
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@throttle_classes([AnonRateThrottle])
 def sms_send(request):
-    
+
     USER_ID = '1257603816'
     MERCHANT_ID = 212
     TOKEN = 'THpraofsxAqQnkjOPEFSdmeLvRKNluhtbBZXVyIUGiDJYMg'
     CODE = code_generator()
     TEXT = f"Tasdiqlash kodi: {CODE}"
-    
+
     try:
         phone = str(request.GET.get('phone'))
     except:
         phone = 'none'
     if phone.__len__() == 9:
+        worker = get_object_or_404(WorkerProfile, phone=phone)
         send_message_bot(TEXT+f"\nTelfon: {phone}")
         payload = json.dumps({
             "send": "",
@@ -143,7 +156,6 @@ def sms_send(request):
             "token": TOKEN,
             "id": MERCHANT_ID
         })
-        worker = WorkerProfile.objects.get(phone=phone)
         url = "https://api.xssh.uz/smsv1/?data="+payload
         # response = requests.request("POST", url)
         worker.code = CODE
@@ -152,19 +164,17 @@ def sms_send(request):
     else:
         status = False
 
-    return JsonResponse({"ok":status})
+    return Response({"ok":status})
 
 
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import action, api_view, permission_classes
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def get_currency(request):
+    company = get_request_company(request.user)
     data = []
     for i in CURRENCY_TYPES:
-        cashs = Cash.objects.filter(currency=i[0])
+        cashs = Cash.objects.filter(currency=i[0], company=company)
         summa = sum([c.mount for c in cashs])
         dt = {
             'id': i[0],
@@ -175,8 +185,8 @@ def get_currency(request):
     return JsonResponse({'data': data})
 
 
-class CashViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class CashViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = Cash.objects.filter(main=True, is_active=True)
     serializer_class = CashSerializer
 
@@ -186,6 +196,7 @@ class CashViewSet(viewsets.ModelViewSet):
             currency = request.data['currency']
             mount = request.data['mount']
             Cash.objects.create(
+                company=get_request_company(request.user),
                 name=name,
                 currency=currency,
                 start_mount=mount,
@@ -219,14 +230,14 @@ class CashViewSet(viewsets.ModelViewSet):
             }, status=400)
 
 
-class WorkersViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class WorkersViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'admin__company'
     queryset = WorkerProfile.objects.filter(active=True)
     serializer_class = WorkerSerializer
 
     @action(methods=['get'], detail=False)
     def top5(self, request):
-        workers = self.queryset.order_by('-balance')[:5]
+        workers = self.get_queryset().order_by('-balance')[:5]
         serializer = WorkerSerializer(workers, many=True)
         return Response(serializer.data)
     
@@ -265,14 +276,13 @@ class WorkersViewSet(viewsets.ModelViewSet):
     def edit(self, request):
         try:
             dt = request.data
-            worker = WorkerProfile.objects.filter(id=request.GET['id'])
+            worker = WorkerProfile.objects.filter(id=request.GET['id'], admin=request.user.admin)
             user = worker.last().user
             user.username=str(dt['phone'])
             user.first_name=dt['first_name']
             user.last_name=dt['last_name']
             worker.update(
                 user=user,
-                admin=request.user.admin,
                 birth=dt['birth'],
                 address=dt['address'],
                 phone=dt['phone'],
@@ -295,7 +305,7 @@ class WorkersViewSet(viewsets.ModelViewSet):
     @action(methods=['post'], detail=True)
     def reset_password(self, request, pk):
         try:
-            worker = WorkerProfile.objects.get(id=pk)
+            worker = get_object_or_404(WorkerProfile, id=pk, admin=request.user.admin)
             worker.user.set_password(request.data['password'])
             worker.user.save()
             return Response({
@@ -319,14 +329,15 @@ class WorkersViewSet(viewsets.ModelViewSet):
             #     cash.mount -= data['got_sum']
             #     serializer.save()
             #     cash.save()
-            cash = Cash.objects.get(id=data['cash'])
-            worker = WorkerProfile.objects.get(id=data['worker'])
+            cash = get_object_or_404(Cash, id=data['cash'], company=request.user.admin.company)
+            worker = get_object_or_404(WorkerProfile, id=data['worker'], admin=request.user.admin)
             cash_before = cash.mount
             cash.mount -= data['mount']
             cash_after = cash.mount
             worker.balance -= data['mount']
             worker.got_balance += data['mount']
             Payment.objects.create(
+                company=request.user.admin.company,
                 type=4,
                 cash=cash,
                 cash_before=cash_before,
@@ -362,18 +373,18 @@ class WorkersViewSet(viewsets.ModelViewSet):
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
         if start_date and end_date:
-            history = Payment.objects.filter(date__date__gte=start_date, date__date__lte=end_date, worker_id=pk)
+            history = Payment.objects.filter(date__date__gte=start_date, date__date__lte=end_date, worker_id=pk, worker__admin=request.user.admin)
             serializer = PaymentSerializer(history, many=True).data
             return Response(serializer)
         else:
             return Response([])
-    
+
     @action(methods=['get'], detail=True)
     def works(self, request, pk):
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
         if start_date and end_date:
-            history = Day.objects.filter(date__date__gte=start_date, date__date__lte=end_date, worker_id=pk)
+            history = Day.objects.filter(date__date__gte=start_date, date__date__lte=end_date, worker_id=pk, worker__admin=request.user.admin)
             serializer = DaysSerializer(history, many=True).data
             return Response(serializer)
         else:
@@ -384,7 +395,7 @@ class WorkersViewSet(viewsets.ModelViewSet):
         try:
             id = request.data['id']
             count = request.data.get('count', 0)
-            work = Work.objects.get(id=id)
+            work = get_object_or_404(Work, id=id, day__worker__admin=request.user.admin)
             work.day.worker.balance -= work.sum
             work.day.sum -= work.sum
             work.count = int(count)
@@ -407,14 +418,13 @@ class WorkersViewSet(viewsets.ModelViewSet):
             }, status=400)
         
 
-class WorksViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class WorksViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'admin__company'
     queryset = WorkCategory.objects.filter(deleted=False)
     serializer_class = CategoriesSerializer
 
     def create(self, request, *args, **kwargs):
         try:
-            request.data['admin'] = request.user.admin.id
             response = super().create(request, *args, **kwargs)
             return Response({
                 'success': True,
@@ -445,13 +455,13 @@ class WorksViewSet(viewsets.ModelViewSet):
 
     @action(methods=['get'], detail=False)
     def top5(self, request):
-        works = self.queryset.order_by('-price')[:5]
+        works = self.get_queryset().order_by('-price')[:5]
         serializer = CategoriesSerializer(works, many=True)
         return Response(serializer.data)
-    
 
-class PISViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+
+class PISViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = PIS.objects.filter(is_active=True)
     serializer_class = PISSerializer
 
@@ -459,18 +469,24 @@ class PISViewSet(viewsets.ModelViewSet):
     def add(self, request):
         try:
             data = request.data
+            company = get_request_company(request.user)
+            storage = get_object_or_404(Storage, id=data['storage'], company=company)
+            category = get_object_or_404(ProductCategory, id=data['category'], company=company) if data.get('category') else None
+            design = get_object_or_404(ProductDesign, id=data['design'], company=company) if data.get('design') else None
             product = Product.objects.create(
+                company=company,
                 name=data['name'],
                 type=data['type'],
-                category_id=data['category'],
-                design_id=data['design'],
+                category=category,
+                design=design,
                 m_type=data['m_type']
             )
             PIS.objects.create(
+                company=company,
                 product=product,
                 mount=data['mount'],
                 start_mount=data['mount'],
-                storage_id=data['storage']
+                storage=storage
             )
             return Response({
                 'success': True,
@@ -488,18 +504,22 @@ class PISViewSet(viewsets.ModelViewSet):
         try:
             id = request.GET.get('id')
             data = request.data
-            pis = PIS.objects.filter(id=id)
+            company = get_request_company(request.user)
+            pis = PIS.objects.filter(id=id, company=company)
+            storage = get_object_or_404(Storage, id=data['storage'], company=company)
             pis.update(
-                storage_id=data['storage'],
+                storage=storage,
                 mount=data['mount']
             )
-            product = Product.objects.filter(id=pis.last().product.id)
+            category = get_object_or_404(ProductCategory, id=data['category'], company=company) if data.get('category') else None
+            design = get_object_or_404(ProductDesign, id=data['design'], company=company) if data.get('design') else None
+            product = Product.objects.filter(id=pis.last().product.id, company=company)
             product.update(
                 name=data['name'],
                 type=data['type'],
                 m_type=data['m_type'],
-                category_id=data['category'],
-                design_id=data['design']
+                category=category,
+                design=design
             )
             return Response({
                 'success': True,
@@ -514,8 +534,8 @@ class PISViewSet(viewsets.ModelViewSet):
             }, status=400)
 
 
-class ProductCategoryViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class ProductCategoryViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = ProductCategory.objects.filter(is_active=True)
     serializer_class = ProductCategorySerializer
 
@@ -550,8 +570,8 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
             }, status=400)
 
 
-class ProductDesignViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class ProductDesignViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = ProductDesign.objects.filter(is_active=True)
     serializer_class = DesignSerializer
 
@@ -587,8 +607,8 @@ class ProductDesignViewSet(viewsets.ModelViewSet):
             }, status=400)
 
 
-class StorageViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class StorageViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = Storage.objects.filter(is_active=True)
     serializer_class = StorageSerializer
 
@@ -624,23 +644,24 @@ class StorageViewSet(viewsets.ModelViewSet):
             }, status=400)
 
 
-class PaymentsViewSet(viewsets.ModelViewSet):
+class PaymentsViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = Payment.objects.filter(is_active=True, type__in=[1, 2, 3])
-    permission_classes = [IsAuthenticated]
     serializer_class = PaymentSerializer
 
     def list(self, *args, **kwargs):
         start_date = self.request.GET.get('start_date')
         end_date = self.request.GET.get('end_date')
+        qs = self.get_queryset()
         if start_date and end_date:
-            self.queryset = self.queryset.filter(date__date__gte=start_date, date__date__lte=end_date)
+            self.queryset = qs.filter(date__date__gte=start_date, date__date__lte=end_date)
         else:
-            self.queryset = self.queryset.filter(date__date__gte=datetime.now().date().replace(day=1))
+            self.queryset = qs.filter(date__date__gte=datetime.now().date().replace(day=1))
         return super().list(*args, **kwargs)
-        
+
     def partial_update(self, request, pk, *args, **kwargs):
         try:
-            payment = Payment.objects.get(pk=pk)
+            payment = get_object_or_404(Payment, pk=pk, company=get_request_company(request.user))
             edited_mount = request.data['mount'] - payment.mount
             if payment.type == 1:
                 if not payment.for_product:
@@ -684,12 +705,13 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     def add(self, request):
         try:
             data = request.data
+            company = get_request_company(request.user)
             product = data['product']
-            cash = Cash.objects.get(id=data['cash'])
-            client = Client.objects.get(id=data['client'])
-            client_cash = Cash.objects.filter(client=client, currency=cash.currency).first()
+            cash = get_object_or_404(Cash, id=data['cash'], company=company)
+            client = get_object_or_404(Client, id=data['client'], company=company)
+            client_cash = Cash.objects.filter(client=client, currency=cash.currency, company=company).first()
             if not client_cash:
-                client_cash = Cash.objects.create(client=client, currency=cash.currency, name=f'{client.name}')
+                client_cash = Cash.objects.create(company=company, client=client, currency=cash.currency, name=f'{client.name}')
             client_before = client_cash.mount
             cash_before = cash.mount
             if data['type'] == 1:
@@ -708,6 +730,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
             client_after = client_cash.mount
             cash_after = cash.mount
             Payment.objects.create(
+                company=company,
                 cash=cash,
                 for_product=product,
                 client_cash=client_cash,
@@ -738,7 +761,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     def worker_payments(self, request):
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        balance = Payment.objects.filter(is_active=True, type=4)
+        balance = Payment.objects.filter(is_active=True, type=4, company=get_request_company(request.user))
         if start_date and end_date:
             balance = balance.filter(date__date__gte=start_date, date__date__lte=end_date)
         else:
@@ -750,11 +773,14 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     def outcome(self, request):
         try:
             data = request.data
-            cash = Cash.objects.get(id=data['cash'])
+            company = get_request_company(request.user)
+            cash = get_object_or_404(Cash, id=data['cash'], company=company)
+            category = get_object_or_404(OutcomeCategory, id=data['category'], company=company) if data.get('category') else None
             cash_before = cash.mount
             cash.mount -= data['mount']
             cash_after = cash.mount
             Payment.objects.create(
+                company=company,
                 cash=cash,
                 mount=data['mount'],
                 date=data['date'],
@@ -763,7 +789,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                 cash_before=cash_before,
                 cash_after=cash_after,
                 type=3,
-                category_id=data['category']
+                category=category
             )
             cash.save()
             return Response({
@@ -778,8 +804,8 @@ class PaymentsViewSet(viewsets.ModelViewSet):
             }, status=400)
     
 
-class ClientsViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class ClientsViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = Client.objects.filter(is_active=True)
     serializer_class = ClientSerializer
 
@@ -814,8 +840,8 @@ class ClientsViewSet(viewsets.ModelViewSet):
             }, status=400)
         
 
-class OutcomeCategoryViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+class OutcomeCategoryViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
+    tenant_lookup = 'company'
     queryset = OutcomeCategory.objects.filter(is_active=True)
     serializer_class = OutcomeCategorySerializer
 

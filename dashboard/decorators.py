@@ -17,8 +17,8 @@ def is_staff(view):
                     return redirect('/super/')
                 logout(request)
                 return redirect('/usta/login/')
-            # Obuna bloklangan (nofaol) korxona kira olmaydi
-            if admin.company_id and not admin.company.is_active:
+            # Obuna bloklangan yoki muddati tugagan korxona kira olmaydi
+            if not admin.company.has_access():
                 logout(request)
                 return redirect('/usta/login/?blocked=1')
             return view(request, *args, **kwargs)

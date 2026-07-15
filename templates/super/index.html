@@ -86,7 +86,7 @@
 
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Korxona</th><th>Login</th><th>Ishchilar</th><th>Holati</th><th>Amal</th></tr></thead>
+          <thead><tr><th>Korxona</th><th>Login</th><th>Ishchilar</th><th>Tarif</th><th>Muddat</th><th>Holati</th><th>Amal</th></tr></thead>
           <tbody>
             {% for row in data %}
             <tr>
@@ -96,17 +96,49 @@
               </td>
               <td><span class="code">{{ row.admin.user.username|default:"—" }}</span></td>
               <td>{{ row.workers }} ta</td>
+              <td>{{ row.company.get_plan_display }}<div style="color:#9aa0ac;font-size:13px;">{{ row.company.price }} so'm</div></td>
+              <td>
+                {% if row.company.end_date %}
+                  {{ row.company.end_date }}
+                  {% if row.is_expired %}<div style="color:#e23b3b;font-size:13px;">Muddati tugagan</div>
+                  {% else %}<div style="color:#9aa0ac;font-size:13px;">{{ row.days_remaining }} kun qoldi</div>{% endif %}
+                {% else %}<span style="color:#9aa0ac;">muddatsiz</span>{% endif %}
+              </td>
               <td>
                 {% if row.company.is_active %}<span class="pill on">Faol</span>
                 {% else %}<span class="pill off">Bloklangan</span>{% endif %}
               </td>
               <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-light btn-sm" onclick="document.getElementById('rn{{ row.company.id }}').classList.add('show')">
+                  <i class="mdi mdi-calendar-refresh"></i> Uzaytirish
+                </button>
                 <button class="btn btn-light btn-sm" onclick="document.getElementById('ed{{ row.company.id }}').classList.add('show')">
                   <i class="mdi mdi-pencil"></i> Tahrirlash
                 </button>
                 <a href="/super/toggle/{{ row.company.id }}/" class="btn btn-light btn-sm">
                   {% if row.company.is_active %}<i class="mdi mdi-lock"></i> Bloklash{% else %}<i class="mdi mdi-lock-open"></i> Faollashtirish{% endif %}
                 </a>
+
+                <!-- Obunani uzaytirish modali -->
+                <div class="backdrop" id="rn{{ row.company.id }}">
+                  <div class="modal" style="text-align:left;">
+                    <h3>{{ row.company.name }} — obunani uzaytirish</h3>
+                    <form method="post" action="/super/renew/{{ row.company.id }}/">{% csrf_token %}
+                      <label>Tezkor tanlov</label>
+                      <div class="row2" style="margin-bottom:14px;">
+                        <button type="submit" name="days" value="30" class="btn btn-light" style="flex:1;">+30 kun</button>
+                        <button type="submit" name="days" value="90" class="btn btn-light" style="flex:1;">+90 kun</button>
+                        <button type="submit" name="days" value="365" class="btn btn-light" style="flex:1;">+365 kun</button>
+                      </div>
+                      <label>Yoki aniq sana</label>
+                      <input name="end_date" type="date" value="{{ row.company.end_date|date:'Y-m-d' }}">
+                      <div class="modal-foot">
+                        <button type="button" class="btn btn-light" onclick="document.getElementById('rn{{ row.company.id }}').classList.remove('show')">Bekor</button>
+                        <button type="submit" class="btn btn-primary">Saqlash</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
 
                 <!-- Tahrirlash modali -->
                 <div class="backdrop" id="ed{{ row.company.id }}">
@@ -119,6 +151,14 @@
                       <input name="username" value="{{ row.admin.user.username }}" required>
                       <label>Yangi parol <span style="text-transform:none;color:#b4b9c4;">— bo'sh qoldirsangiz o'zgarmaydi</span></label>
                       <input name="password" type="text" placeholder="Yangi parol">
+                      <label>Tarif</label>
+                      <select name="plan" style="width:100%;border:1px solid #e6e9f0;border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:14px;">
+                        {% for key, label in plan_types %}
+                        <option value="{{ key }}" {% if row.company.plan == key %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                      <label>Narx (oyiga, so'm)</label>
+                      <input name="price" type="number" value="{{ row.company.price }}">
                       <div class="modal-foot">
                         <button type="button" class="btn btn-light" onclick="document.getElementById('ed{{ row.company.id }}').classList.remove('show')">Bekor</button>
                         <button type="submit" class="btn btn-primary">Saqlash</button>
@@ -129,7 +169,7 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="5" class="empty">Hozircha korxona yo'q. "Korxona qo'shish" tugmasini bosing.</td></tr>
+            <tr><td colspan="7" class="empty">Hozircha korxona yo'q. "Korxona qo'shish" tugmasini bosing.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -152,6 +192,16 @@
         </div>
         <label>Rahbar ismi (ixtiyoriy)</label>
         <input name="first_name" placeholder="Ism">
+        <label>Tarif</label>
+        <select name="plan" style="width:100%;border:1px solid #e6e9f0;border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:14px;">
+          {% for key, label in plan_types %}
+          <option value="{{ key }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <div class="row2">
+          <div><label>Narx (oyiga, so'm)</label><input name="price" type="number" placeholder="0"></div>
+          <div><label>Muddat (kun)</label><input name="duration_days" type="number" placeholder="Masalan: 30"></div>
+        </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-light" onclick="document.getElementById('bd').classList.remove('show')">Bekor</button>
           <button type="submit" class="btn btn-primary">Qo'shish</button>

@@ -3,7 +3,17 @@ from django.contrib.auth.models import User
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from rest_framework.authtoken.models import Token
-from datetime import datetime
+from datetime import datetime, date
+
+from .managers import TenantManager
+
+
+PLAN_TYPES = (
+    ('trial', 'Sinov'),
+    ('start', 'Start'),
+    ('business', 'Biznes'),
+    ('premium', 'Premium'),
+)
 
 
 class Company(models.Model):
@@ -13,16 +23,32 @@ class Company(models.Model):
     is_active = models.BooleanField(default=True)   # bloklangan bo'lsa kira olmaydi
     created = models.DateTimeField(auto_now_add=True)
 
+    plan = models.CharField(max_length=20, choices=PLAN_TYPES, default='trial')
+    price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)  # bo'sh = muddatsiz
+
     class Meta:
         ordering = ['-created']
 
     def __str__(self):
         return self.name
 
+    @property
+    def is_expired(self):
+        return bool(self.end_date and self.end_date < date.today())
+
+    @property
+    def days_remaining(self):
+        return (self.end_date - date.today()).days if self.end_date else None
+
+    def has_access(self):
+        return self.is_active and not self.is_expired
+
 
 class AdminProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin')
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='admins', blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name='admins')
     date = models.DateTimeField(auto_now_add=True)
     gave_money = models.IntegerField(default=0)
     workers_money = models.IntegerField(default=0)
@@ -35,6 +61,9 @@ class AdminProfile(models.Model):
 
 
 class WorkerProfile(models.Model):
+    TENANT_LOOKUP = 'admin__company'
+    objects = TenantManager()
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='worker')
     admin = models.ForeignKey(AdminProfile, on_delete=models.CASCADE, related_name='workers')
     date = models.DateTimeField(auto_now_add=True)
@@ -65,6 +94,9 @@ class WorkerProfile(models.Model):
 
 
 class WorkCategory(models.Model):
+    TENANT_LOOKUP = 'admin__company'
+    objects = TenantManager()
+
     WORK_TYPES = (
         ("dona","dona"),
         ("metr","metr"),
@@ -90,6 +122,9 @@ class WorkCategory(models.Model):
 
 
 class Day(models.Model):
+    TENANT_LOOKUP = 'worker__admin__company'
+    objects = TenantManager()
+
     worker = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name='days')
     date = models.DateTimeField(auto_now_add=True)
     sum = models.IntegerField(default=0)
@@ -103,6 +138,9 @@ class Day(models.Model):
 
 
 class Work(models.Model):
+    TENANT_LOOKUP = 'day__worker__admin__company'
+    objects = TenantManager()
+
     category = models.ForeignKey(WorkCategory, on_delete=models.SET_NULL, related_name='works', null=True)
     active = models.BooleanField(default=True)
     day = models.ForeignKey(Day, on_delete=models.CASCADE, related_name='theworks')
@@ -115,6 +153,9 @@ class Work(models.Model):
 
 
 class BalanceHistory(models.Model):
+    TENANT_LOOKUP = 'worker__admin__company'
+    objects = TenantManager()
+
     worker = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name='balance_history')
     cash = models.ForeignKey('Cash', on_delete=models.CASCADE, related_name='worker_payments', blank=True, null=True)
     date = models.DateTimeField(blank=True, null=True)
@@ -128,6 +169,9 @@ class BalanceHistory(models.Model):
     
 
 class BugWork(models.Model):
+    TENANT_LOOKUP = 'worker__admin__company'
+    objects = TenantManager()
+
     worker = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name='bugs')
     date = models.DateTimeField(auto_now_add=True)
     price = models.IntegerField(default=0)
@@ -152,6 +196,10 @@ def create_profile(sender, instance, created, **kwargs):
 
 
 class ProductCategory(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='product_categories')
     name = models.CharField(max_length=450)
     is_active = models.BooleanField(default=True)
 
@@ -167,6 +215,10 @@ class ProductCategory(models.Model):
 
 
 class ProductDesign(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='product_designs')
     name = models.CharField(max_length=450)
     is_active = models.BooleanField(default=True)
 
@@ -192,6 +244,10 @@ MTYPES = (
 
 
 class Storage(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='storages')
     name = models.CharField(max_length=450)
     type = models.IntegerField(choices=PRODUCT_TYPES)
     is_active = models.BooleanField(default=True)
@@ -201,6 +257,10 @@ class Storage(models.Model):
 
 
 class Product(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='products')
     name = models.CharField(max_length=450)
     type = models.IntegerField(choices=PRODUCT_TYPES)
     category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE, blank=True, null=True)
@@ -212,6 +272,10 @@ class Product(models.Model):
 
 
 class PIS(models.Model): # Product in storage
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='pis_items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='pis')
     mount = models.DecimalField(max_digits=12, decimal_places=1)
     start_mount = models.DecimalField(max_digits=12, decimal_places=1)
@@ -236,6 +300,10 @@ CLIENT_TYPES = (
     
 
 class Client(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='clients')
     name = models.CharField(max_length=250)
     type = models.IntegerField(choices=CLIENT_TYPES)
     phone1 = models.CharField(max_length=15, blank=True, null=True)
@@ -249,6 +317,10 @@ class Client(models.Model):
 
 
 class Cash(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='cashes')
     name = models.CharField(max_length=250)
     currency = models.IntegerField(choices=CURRENCY_TYPES, default=1)
     main = models.BooleanField(default=False)
@@ -270,6 +342,10 @@ class Cash(models.Model):
 
 
 class OutcomeCategory(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='outcome_categories')
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
 
@@ -278,6 +354,10 @@ class OutcomeCategory(models.Model):
 
 
 class Payment(models.Model):
+    TENANT_LOOKUP = 'company'
+    objects = TenantManager()
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='payments')
     date = models.DateTimeField(blank=True, null=True)
     mount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     currency = models.IntegerField(choices=CURRENCY_TYPES, default=1)

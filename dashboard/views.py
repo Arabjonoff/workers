@@ -102,7 +102,7 @@ class HomePageView(LoginRequiredMixin, View):
             "admin":admin,
             "workers_b":workers.order_by('-balance')[:5],
             "categories":categories.filter(deleted=False).order_by('-price')[:5],
-            "cash": Cash.objects.filter(main=True),
+            "cash": Cash.objects.filter(main=True, company=admin.company),
             # chart data
             "trend_labels": trend_labels,
             "trend_values": trend_values,
@@ -122,6 +122,7 @@ class HomePageView(LoginRequiredMixin, View):
             mount = request.POST.get('mount')
             currency = request.POST.get('currency')
             Cash.objects.create(
+                company=request.user.admin.company,
                 name=name,
                 mount=mount,
                 currency=currency,
@@ -198,7 +199,7 @@ class WorksListView(LoginRequiredMixin, View):
     def get(self, request):
         try:
             c_id = int(request.GET.get("id"))
-            category = WorkCategory.objects.get(id=c_id)
+            category = get_object_or_404(WorkCategory, id=c_id, admin=request.user.admin)
             works = Work.objects.filter(category=category)
             for work in works:
                 if work.sum == 0:
@@ -217,7 +218,7 @@ class WorksListView(LoginRequiredMixin, View):
         c_id = int(request.POST.get("id"))
         name = request.POST.get("name")
         price = request.POST.get("price")
-        category = WorkCategory.objects.get(id=c_id)
+        category = get_object_or_404(WorkCategory, id=c_id, admin=request.user.admin)
         category.name = name
         category.price = price
         category.save()
@@ -295,7 +296,7 @@ class GiveMoneyHistoryListView(LoginRequiredMixin, View):
     def get(self, request):
         try:
             w_id = request.GET.get('worker_id')
-            worker = WorkerProfile.objects.get(id=w_id)
+            worker = get_object_or_404(WorkerProfile, id=w_id, admin=request.user.admin)
             if worker.balance > 0:
                 balance = worker.balance
             else:
@@ -362,11 +363,11 @@ class BugWorksView(LoginRequiredMixin, View):
         return redirect('/usta/bugs')
     
 
+@is_staff
 def sms_send(request):
-    
-    admin_id = request.GET.get('id')
-    admin = AdminProfile.objects.get(id=admin_id)
-    
+
+    admin = request.user.admin
+
     try:
         phone = str(request.GET.get('phone'))
     except:
@@ -411,11 +412,6 @@ def status_work(request):
     work.save()
     worker.save()
     return JsonResponse({"response":response})
-
-def check_day(request):
-    day = request.GET.get('day')
-    if day == 'all':
-        days = Day.objects.filter(date__date=TODAY)
 
 @is_staff
 def clear_history(request):
@@ -468,8 +464,9 @@ def clear_history(request):
 @method_decorator(is_staff, name='dispatch')
 class ProductsView(LoginRequiredMixin, View):
     def get(self, request):
-        pis = PIS.objects.filter(is_active=True).order_by('-id')
-        storage = Storage.objects.filter(is_active=True)
+        company = request.user.admin.company
+        pis = PIS.objects.filter(is_active=True, company=company).order_by('-id')
+        storage = Storage.objects.filter(is_active=True, company=company)
         context = {
             'products': pis,
             'storages': storage,
@@ -479,21 +476,25 @@ class ProductsView(LoginRequiredMixin, View):
         return render(request, 'dashboard/products.html', context)
 
     def post(self, request):
+        company = request.user.admin.company
         name = request.POST.get('name')
         type = request.POST.get('type')
         storage = request.POST.get('storage')
         mount = request.POST.get('mount')
         mtype = request.POST.get('mtype')
         try:
+            storage_obj = get_object_or_404(Storage, id=storage, company=company)
             product = Product.objects.create(
+                company=company,
                 name=name,
                 type=type,
                 m_type=mtype
             )
             PIS.objects.create(
+                company=company,
                 product=product,
                 mount=mount,
-                storage_id=storage,
+                storage=storage_obj,
                 start_mount=mount
             )
             messages.success(request, 'Mahsulot qo`shildi.')
@@ -502,9 +503,10 @@ class ProductsView(LoginRequiredMixin, View):
         
         return redirect(request.META['HTTP_REFERER'])
     
-@login_required
+@is_staff
 def edit_pis(request, id):
-    pis = PIS.objects.get(id=id)
+    company = request.user.admin.company
+    pis = get_object_or_404(PIS, id=id, company=company)
     name = request.POST.get('name')
     type = request.POST.get('type')
     storage = request.POST.get('storage')
@@ -515,7 +517,7 @@ def edit_pis(request, id):
         pis.product.name = name
         pis.product.type = type
         pis.product.m_type = mtype
-        pis.storage = Storage.objects.get(id=storage)
+        pis.storage = get_object_or_404(Storage, id=storage, company=company)
         pis.mount = mount
         pis.start_mount = start_mount
         pis.product.save()
@@ -526,9 +528,9 @@ def edit_pis(request, id):
 
     return redirect(request.META['HTTP_REFERER'])
 
-@login_required
+@is_staff
 def delete_pis(request, id):
-    pis = PIS.objects.get(id=id)
+    pis = get_object_or_404(PIS, id=id, company=request.user.admin.company)
     pis.is_active = False
     pis.save()
     messages.success(request, 'Mahsulot o`chirildi')
@@ -538,5 +540,5 @@ def delete_pis(request, id):
 @method_decorator(is_staff, name='dispatch')
 class StoragesView(LoginRequiredMixin, View):
     def get(self, request):
-        storages = Storage.objects.filter(is_active=True)
-        return render(request, 'dashboard/storage.html')
+        storages = Storage.objects.filter(is_active=True, company=request.user.admin.company)
+        return render(request, 'dashboard/storage.html', {'storages': storages})

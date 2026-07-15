@@ -27,6 +27,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkCategory
         fields = ['id', 'name', 'type', 'price', 'admin', 'deleted']
+        read_only_fields = ['admin']
 
 
 class WorksSerializer(serializers.ModelSerializer):
@@ -77,6 +78,7 @@ class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = '__all__'
+        read_only_fields = ['company']
 
     def save(self, *args, **kwargs):
         date = DateModel.objects.last()
@@ -107,6 +109,7 @@ class ProductCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductCategory
         fields = '__all__'
+        read_only_fields = ['company']
 
     def save(self, *args, **kwargs):
         date = DateModel.objects.last()
@@ -160,6 +163,7 @@ class PISSerializer(serializers.ModelSerializer):
     class Meta:
         model = PIS
         fields = '__all__'
+        read_only_fields = ['company']
 
 
 class DateModelSerializer(serializers.ModelSerializer):
@@ -210,6 +214,7 @@ class OutcomeCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OutcomeCategory
         fields = '__all__'
+        read_only_fields = ['company']
 
     def save(self, *args, **kwargs):
         date = DateModel.objects.last()

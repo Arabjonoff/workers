@@ -52,7 +52,8 @@ INSTALLED_APPS = [
 
 
 CRONJOBS = [
-    ('0 0 * * *', 'main.cronjobs.create_day')
+    ('0 0 * * *', 'main.cronjobs.create_day'),
+    ('5 0 * * *', 'main.cronjobs.check_subscriptions'),
 ]
 
 from django.contrib.messages import constants as messages
@@ -72,7 +73,11 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
-    ]
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+        'api.permissions.IsActiveTenant',
+    ],
 }
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -84,6 +89,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'dashboard.middleware.TenantAccessMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

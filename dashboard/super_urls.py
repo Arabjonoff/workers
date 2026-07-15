@@ -8,4 +8,5 @@ urlpatterns = [
     path('add/', v.add_company, name='super_add_company'),
     path('edit/<int:id>/', v.edit_company, name='super_edit_company'),
     path('toggle/<int:id>/', v.toggle_company, name='super_toggle_company'),
+    path('renew/<int:id>/', v.renew_company, name='super_renew_company'),
 ]
