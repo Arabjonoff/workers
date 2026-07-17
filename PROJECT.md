@@ -43,11 +43,19 @@ Company (korxona/obunachi)
   `Payment`, `ProductCategory`, `ProductDesign`, `OutcomeCategory`
 - Bilvosita (`worker__admin__company` yoki `admin__company` orqali): `WorkerProfile`,
   `WorkCategory`, `Day`, `Work`, `BalanceHistory`, `BugWork`
+- Bilvosita, 2026-07-17'da qo'shildi: `Turnover` (`client__company`),
+  `ProductTurnover` (`product__company`), `RecipeItem` (`product__company`)
 
 ### Global (tenant tushunchasi yo'q, ataylab)
 `Backup` (tizim loglari), `DateModel` (oxirgi o'zgarish vaqtlari — keshni
-yangilash uchun), `SavolJavob` (FAQ), `ProductTurnover`/`Turnover` (mahsulot
-aylanmasi — hozircha hech qanday view/API orqali ishlatilmaydi).
+yangilash uchun), `SavolJavob` (FAQ).
+
+### Retsept (BOM) — 2026-07-17'da qo'shildi
+`Product.standard_price` (ixtiyoriy standart narx) va `RecipeItem`
+(`product`, `material`, `mount`) — tayyor mahsulotning 1 donasi uchun
+qancha xom-ashyo ketishini belgilaydi. Narx va zaxira yetarliligi
+`dashboard/views.py`dagi `_material_price`/`_material_stock`/`_recipe_cost`/
+`_recipe_stock_check` funksiyalari orqali hisoblanadi (`/usta/recipe/<id>/`).
 
 ### Obuna (`Company` modeli)
 ```python
@@ -168,11 +176,14 @@ shu fayl uslubida tenant-izolyatsiya testi yozing.
 To'liq server holati, stack (nginx/gunicorn/PostgreSQL/cron), yangilash
 buyruqlari va bajarilmagan ishlar — [DEPLOYMENT.md](DEPLOYMENT.md) da.
 
+> ⚠️ **2026-07-17**: `main/migrations/0002_recipe_item.py` qo'shildi
+> (Retseptlar bo'limi uchun). Production serverga keyingi deploy qilishda
+> kodni yangilagandan so'ng albatta `python manage.py migrate` ishga
+> tushirilishi kerak — aks holda "Retseptlar" bo'limi `OperationalError`
+> beradi (`standard_price` ustuni/`RecipeItem` jadvali bo'lmaydi).
+
 ## Kelajakda e'tibor berish kerak bo'lgan joylar
 
-- `Turnover`/`ProductTurnover` modellari hech qanday ViewSet orqali
-  ochilmagan — kelajakda API qo'shilsa, `client.company`/`product.product.company`
-  orqali tenant-scope qilish kerak bo'ladi.
 - Haqiqiy to'lov (Payme/Click) integratsiyasi yo'q — `Company.price`/`plan`
   faqat ma'lumot uchun, super-admin qo'lda boshqaradi.
 - SMS yuborish (`main/funcs.py`, `dashboard/sms_sender.py`, `api/views.py`
@@ -180,3 +191,69 @@ buyruqlari va bajarilmagan ishlar — [DEPLOYMENT.md](DEPLOYMENT.md) da.
   qattiq kodga yozilgan, kelajakda `.env`ga ko'chirish tavsiya etiladi.
 - Media fayllar (ishchi rasmlari) va PostgreSQL bazasi uchun avtomatik
   backup hali sozlanmagan.
+- `Turnover.finished`/`rejected` maydonlari hozircha ishlatilmaydi — Sotuv/Olish
+  bitta bosqichda darhol yakunlanadi, "qoralama → tasdiqlash" oqimi yo'q.
+- Ombordan mijozsiz chiqim (yaroqsiz mahsulotni hisobdan chiqarish) hali yo'q
+  — "Mahsulot chiqim" hozircha ataylab "Sotuv" bilan bir xil oqimga yo'naltirilgan.
+- "Ishlab chiqarish" (`produce_recipe`) hech qanday audit-yozuv (kim, qachon
+  ishlab chiqardi) qoldirmaydi — faqat `PIS.mount`larni to'g'ridan-to'g'ri
+  o'zgartiradi. Kerak bo'lsa, kelajakda alohida "ishlab chiqarish tarixi"
+  modeli/jurnali qo'shish mumkin.
+
+## Mavjud dashboard bo'limlari — qisqa xarita
+
+| Bo'lim | View (`dashboard/views.py`) | URL | Holati |
+|---|---|---|---|
+| Bosh sahifa | `HomePageView` | `/usta/` | ✅ |
+| Ishlar ro'yxati | `WorksListView` | `/usta/works/` | ✅ |
+| Ishchilar | `WorkersListView`, `WorkerProfileView` | `/usta/workers/`, `/usta/worker/<id>/` | ✅ |
+| Pul berish (ishchi oyligi) | `GiveMoneyHistoryListView` | `/usta/give_money/` | ✅ |
+| Jarimalar | `BugWorksView` | `/usta/bugs/` | ✅ |
+| **Mijozlar** (Haridorlar/Taminotchilar/Turli shaxslar) | `ClientsView`, `ClientProfileView` | `/usta/clients/<type>/`, `/usta/client/<id>/` | ✅ (2026-07-17) |
+| Mahsulotlar / Ombor | `ProductsView`, `StoragesView` | `/usta/products/`, `/usta/storages/` | ✅ (ombor qo'shish nuqsoni 2026-07-17'da tuzatildi) |
+| **Kassa** (Hamyonlar, Kirim, Chiqim, Harajat) | `KassaView`, `cash_income`, `cash_outcome`, `cash_expense` | `/usta/kassa/` | ✅ (2026-07-17) |
+| **Sotuv / Mahsulot kirim-chiqim** (Turnover) | `TurnoverView` | `/usta/turnover/<type>/` | ✅ (2026-07-17) |
+| **Retseptlar** (BOM — narx va zaxira hisob-kitobi) | `RecipeListView`, `RecipeDetailView` | `/usta/recipes/`, `/usta/recipe/<id>/` | ✅ (2026-07-17) |
+
+Barcha asosiy dashboard bo'limlari endi ishlaydi — sidebar'da placeholder
+qolmagan.
+
+## Bajarilgan ishlar tarixi
+
+Har bir bajarilgan ishning batafsil yozuvi [WORK_LOG.md](WORK_LOG.md) da.
+Bu yerda faqat yakunlangan yirik bosqichlar ro'yxati yuritiladi:
+
+- **2026-07** — Tenant izolyatsiyasi to'liq qayta ishlab chiqildi (yuqoridagi
+  "Tenant izolyatsiyasi" bo'limiga qarang).
+- **2026-07-17** — Admin panel sidebar tekshirildi, placeholder bo'limlar
+  aniqlandi.
+- **2026-07-17** — **Mijozlar** bo'limi qurildi va ishga tushirildi
+  (Haridorlar/Taminotchilar/Turli shaxslar — bitta `Client` modeli, `type`
+  bo'yicha filtrlangan; ro'yxat, qo'shish, profil, tahrirlash, o'chirish —
+  hammasi ishlaydi va test qilingan). Batafsil: `WORK_LOG.md`.
+- **2026-07-17** — **Kassa** bo'limi qurildi va ishga tushirildi (Hamyonlar,
+  Kirim, Chiqim, Harajat — mobil API bilan bir xil mantiq; Django shell
+  orqali hisob-kitob to'g'riligi tasdiqlandi). Batafsil: `WORK_LOG.md`.
+- **2026-07-17** — Mijoz profilidagi "Pul tarixi" tabi Kassa ma'lumotlariga
+  ulandi (foydalanuvchi test paytida topgan kamchilik). Batafsil: `WORK_LOG.md`.
+- **2026-07-17** — **Sotuv / Mahsulot kirim-chiqim (Turnover)** bo'limi
+  noldan loyihalab qurildi (avval hech qanday kod yo'q edi) — zaxira
+  tekshiruvi, mijoz qarz hisobi, ixtiyoriy darhol to'lov, ko'p qatorli
+  savdo cheki. `Turnover`/`ProductTurnover` tenant-izolyatsiyaga ulandi.
+  Batafsil: `WORK_LOG.md`.
+- **2026-07-17** — **Retseptlar (BOM)** bo'limi noldan qurildi — birinchi
+  marta yangi migratsiya (`0002_recipe_item.py`) qo'shildi
+  (`Product.standard_price`, yangi `RecipeItem` modeli). Tayyor mahsulot
+  uchun 1 donalik narx va joriy zaxira bilan necha dona tayyorlash mumkinligi
+  hisoblanadi. **Production'da deploy paytida `migrate` ishga tushirish
+  shart** (yuqoridagi "Deploy va production" bo'limiga qarang). Batafsil:
+  `WORK_LOG.md`.
+- **2026-07-17** — Ombor qo'shish nuqsoni tuzatildi (`storage.html`
+  `products.html`dan noto'g'ri nusxa olingan ekan, `StoragesView`da
+  `post()` yo'q edi). Endi ombor qo'shish/tahrirlash/o'chirish to'liq
+  ishlaydi. Batafsil: `WORK_LOG.md`.
+- **2026-07-17** — Retseptlarga **"Ishlab chiqarish"** qo'shildi — endi
+  tugma bosilsa, xom-ashyo turli omborlardan avtomatik kamayadi (eng ko'p
+  zaxiralidan boshlab) va tayyor mahsulot omborga qo'shiladi, zaxira
+  yetmasa hech narsa o'zgarmaydi. Retseptlar bo'limi endi to'liq ishlaydigan
+  aylanma (hisob-kitobdan — real ombor harakatigacha). Batafsil: `WORK_LOG.md`.

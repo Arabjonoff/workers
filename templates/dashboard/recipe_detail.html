@@ -1,0 +1,190 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<style>
+    .line-table th, .line-table td{padding:8px;vertical-align:middle;}
+    .line-table input, .line-table select{padding:6px 8px;font-size:13px;}
+    .metric-card{background:#fff;border:none;border-radius:14px;padding:18px 20px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);height:100%;}
+    .metric-card small{color:#9aa0ac;text-transform:uppercase;font-size:11px;letter-spacing:.4px;}
+    .metric-card h4{font-weight:700;margin:4px 0 0;color:#282f3a;font-size:22px;}
+</style>
+
+<div class="main-panel">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
+
+    <div class="page-hero">
+      <h2>🧩 {{product.name}}</h2>
+      <p>Retsept (tarkib) va zaxira hisob-kitobi</p>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-md-4 col-6 mb-3">
+        <div class="metric-card">
+          <small>1 dona narxi</small>
+          {% if missing_price %}
+          <h4 style="font-size:14px;color:#d69a00;">Nomalum ({{missing_price|join:", "}})</h4>
+          {% else %}
+          <h4>{{cost|intcomma}} <span style="font-size:13px;color:#9aa0ac;">so'm</span></h4>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-md-4 col-6 mb-3">
+        <div class="metric-card">
+          <small>Joriy zaxira bilan nechta tayyorlash mumkin</small>
+          <h4>{% if max_producible is not None %}{{max_producible}} dona{% else %}—{% endif %}</h4>
+        </div>
+      </div>
+    </div>
+
+    {% if items %}
+    <div class="card soft-card" style="border-left:3px solid #4d83ff;">
+      <div class="card-body">
+        <h4 class="card-title mb-2">Ishlab chiqarish</h4>
+        <p class="text-muted" style="font-size:13px;margin-bottom:16px;">
+          Tasdiqlansa, xom-ashyo omborlardan avtomatik kamayadi va tayyor
+          mahsulot tanlangan omborga qo'shiladi. Zaxira yetmasa, hech narsa
+          o'zgarmaydi.
+        </p>
+        {% if not storages %}
+        <p class="text-muted">Avval Ombor bo'limida ombor qo'shing.</p>
+        {% else %}
+        <form class="form-modern d-flex flex-wrap" method="post" action="/usta/recipe/{{product.id}}/produce/" style="gap:12px;align-items:flex-end;">
+          {% csrf_token %}
+          <div style="width:140px;">
+            <label class="fm-label">Nechta dona</label>
+            <input type="number" step="1" min="1" class="form-control" name="count" value="{{max_producible|default:1}}" required>
+          </div>
+          <div style="width:220px;">
+            <label class="fm-label">Qaysi omborga qo'shilsin</label>
+            <select name="storage" class="form-control" required>
+              <option value=""></option>
+              {% for s in storages %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-cog-play-outline"></i> Ishlab chiqarish</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-4">Retsept (1 dona uchun kerakli hom-ashyo)</h4>
+        {% if not materials %}
+        <p class="text-muted">Boshqa mahsulot yo'q — avval Mahsulotlar bo'limida hom-ashyo qo'shing.</p>
+        {% else %}
+        <form class="form-modern" method="post"> {% csrf_token %}
+          <div class="table-responsive mb-2">
+            <table class="tbl-modern line-table" id="linesTable">
+              <thead>
+                <tr><th style="min-width:220px;">Hom-ashyo</th><th style="width:140px;">1 donaga kerak</th><th style="width:40px;"></th></tr>
+              </thead>
+              <tbody id="linesBody"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary mb-3" id="addLineBtn"><i class="mdi mdi-plus"></i> Qator qo'shish</button>
+          <div>
+            <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-content-save"></i> Retseptni saqlash</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-3">Necha dona uchun tekshirish</h4>
+        <form method="get" class="form-modern d-flex mb-3" style="gap:12px;align-items:flex-end;">
+          <div style="width:160px;">
+            <label class="fm-label">Nechta dona</label>
+            <input type="number" step="1" min="1" class="form-control" name="count" value="{{count|floatformat:0}}">
+          </div>
+          <button class="btn btn-primary btn-modern" type="submit">Tekshirish</button>
+        </form>
+
+        {% if check_rows %}
+        <div class="table-responsive">
+          <table class="tbl-modern">
+            <thead><tr><th>Hom-ashyo</th><th>1 donaga</th><th>{{count|floatformat:0}} donaga kerak</th><th>Omborda mavjud</th><th>Holati</th></tr></thead>
+            <tbody>
+              {% for row in check_rows %}
+              <tr>
+                <td>{{row.material.name}}</td>
+                <td>{{row.per_unit}}</td>
+                <td>{{row.needed}}</td>
+                <td>{{row.stock}}</td>
+                <td>
+                  {% if row.enough %}
+                  <span class="badge-soft badge-green">Yetarli</span>
+                  {% else %}
+                  <span class="badge-soft badge-amber">Yetmaydi (−{{row.shortage}})</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Avval yuqorida retsept belgilang.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if materials %}
+<script id="materials_data" type="application/json">
+[
+  {% for m in materials %}
+  {"id": {{m.id}}, "name": "{{m.name|escapejs}} ({{m.get_m_type_display}})"}{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]
+</script>
+<script id="existing_items" type="application/json">
+[
+  {% for item in items %}
+  {"material_id": {{item.material.id}}, "mount": {{item.mount}}}{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]
+</script>
+
+<script>
+window.addEventListener('load', function () {
+  var materials = JSON.parse(document.getElementById('materials_data').textContent);
+  var existing = JSON.parse(document.getElementById('existing_items').textContent);
+  var linesBody = document.getElementById('linesBody');
+
+  function materialOptions(selectedId) {
+    var html = '<option value=""></option>';
+    materials.forEach(function (m) {
+      html += '<option value="' + m.id + '"' + (m.id == selectedId ? ' selected' : '') + '>' + m.name + '</option>';
+    });
+    return html;
+  }
+
+  function addLine(materialId, mount) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><select class="form-control" name="material[]" required>' + materialOptions(materialId) + '</select></td>' +
+      '<td><input type="number" step="0.01" class="form-control" name="mount[]" value="' + (mount || '') + '" required></td>' +
+      '<td><button type="button" class="act-btn act-red remove-line"><i class="mdi mdi-close"></i></button></td>';
+    linesBody.appendChild(tr);
+    tr.querySelector('.remove-line').addEventListener('click', function () { tr.remove(); });
+  }
+
+  document.getElementById('addLineBtn').addEventListener('click', function () { addLine(); });
+
+  if (existing.length) {
+    existing.forEach(function (it) { addLine(it.material_id, it.mount); });
+  } else {
+    addLine();
+  }
+});
+</script>
+{% endif %}
+{% endblock wrapper %}

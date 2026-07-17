@@ -1,0 +1,77 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<div class="main-panel">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
+
+    <div class="page-hero">
+      <h2>🧩 Retseptlar</h2>
+      <p>Tayyor mahsulot uchun qancha hom-ashyo ketishi va narxi</p>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-4">Retsept ochish / yaratish</h4>
+        <form class="form-modern d-flex flex-wrap" method="get" action="/usta/recipe/0/" id="pickForm" style="gap:12px;align-items:flex-end;">
+          <div style="min-width:280px;">
+            <label class="fm-label">Mahsulot</label>
+            <select class="form-control" id="productPick">
+              <option value=""></option>
+              {% for p in products %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary btn-modern" id="openRecipeBtn"><i class="mdi mdi-arrow-right"></i> Ochish</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-3">Mavjud retseptlar</h4>
+        <div class="table-responsive">
+          <table class="tbl-modern">
+            <thead><tr><th>Mahsulot</th><th>Hom-ashyo soni</th><th>1 dona narxi</th><th>Joriy zaxira bilan nechta tayyorlash mumkin</th><th>Amallar</th></tr></thead>
+            <tbody>
+              {% for r in rows %}
+              <tr>
+                <td style="font-weight:600;">{{r.product.name}}</td>
+                <td>{{r.count}} tur</td>
+                <td>
+                  {% if r.missing %}
+                  <span class="badge-soft badge-amber" title="Narxi nomalum: {{r.missing|join:', '}}">Narx nomalum ({{r.missing|join:', '}})</span>
+                  {% else %}
+                  {{r.cost|intcomma}}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.max_producible is not None %}
+                  <span class="badge-soft {% if r.max_producible > 0 %}badge-green{% else %}badge-gray{% endif %}">{{r.max_producible}} dona</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <a href="/usta/recipe/{{r.product.id}}/" class="act-btn act-blue" title="Ko'rish/tahrirlash"><i class="mdi mdi-pencil"></i></a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="empty-row"><td colspan="5">Hozircha retsept belgilanmagan</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('load', function () {
+  document.getElementById('openRecipeBtn').addEventListener('click', function () {
+    var id = document.getElementById('productPick').value;
+    if (!id) return;
+    window.location.href = '/usta/recipe/' + id + '/';
+  });
+});
+</script>
+{% endblock wrapper %}

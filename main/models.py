@@ -266,9 +266,26 @@ class Product(models.Model):
     category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE, blank=True, null=True)
     design = models.ForeignKey(ProductDesign, on_delete=models.CASCADE, blank=True, null=True)
     m_type = models.IntegerField(choices=MTYPES)
+    standard_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return self.name
+
+
+class RecipeItem(models.Model):
+    """Retsept (BOM): tayyor mahsulot uchun 1 donaga qancha hom-ashyo ketishini belgilaydi."""
+    TENANT_LOOKUP = 'product__company'
+    objects = TenantManager()
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='recipe_items')
+    material = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='used_in_recipes')
+    mount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = ('product', 'material')
+
+    def __str__(self):
+        return f'{self.product.name}: {self.mount} x {self.material.name}'
 
 
 class PIS(models.Model): # Product in storage
@@ -389,6 +406,9 @@ class Payment(models.Model):
     
 
 class ProductTurnover(models.Model):
+    TENANT_LOOKUP = 'product__company'
+    objects = TenantManager()
+
     product = models.ForeignKey(PIS, on_delete=models.CASCADE)
     mount = models.DecimalField(max_digits=12, decimal_places=1)
     status = models.IntegerField(choices=(
@@ -409,6 +429,9 @@ class ProductTurnover(models.Model):
     
 
 class Turnover(models.Model): # product turnover
+    TENANT_LOOKUP = 'client__company'
+    objects = TenantManager()
+
     type = models.IntegerField(choices=(
         (1, 'Sotish'),
         (2, 'Olish')

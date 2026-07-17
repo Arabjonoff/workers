@@ -1,0 +1,192 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<style>
+    .profile-head{background:linear-gradient(135deg,#4d83ff 0%,#7859df 100%);border-radius:16px;
+        color:#fff;padding:26px 28px;margin-bottom:24px;box-shadow:0 10px 30px rgba(77,131,255,.25);}
+    .profile-avatar{width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.2);
+        display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;}
+    .profile-head h2{color:#fff;font-weight:700;margin:0;font-size:24px;}
+    .profile-head .meta{color:rgba(255,255,255,.85);font-size:14px;}
+    .pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,255,255,.2);}
+    .p-tabs{border:none;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+    .p-tabs .nav-link{border:none;border-radius:10px;color:#6b7280;font-weight:600;padding:10px 18px;background:#f2f4f8;}
+    .p-tabs .nav-link.active{background:linear-gradient(135deg,#4d83ff,#7859df);color:#fff;box-shadow:0 6px 16px rgba(77,131,255,.28);}
+    .soon-box{text-align:center;padding:40px 20px;color:#9aa0ac;}
+    .soon-box i{font-size:38px;display:block;margin-bottom:10px;}
+</style>
+
+<div class="main-panel">
+    <div class="content-wrapper">
+        {% include 'messages.html' %}
+
+        <!-- Profil sarlavhasi -->
+        <div class="profile-head">
+            <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap:18px;">
+                <div class="d-flex align-items-center" style="gap:18px;">
+                    <div class="profile-avatar">{{client.name|first|upper}}</div>
+                    <div>
+                        <h2>{{client.name}}</h2>
+                        <div class="meta">
+                            {% if client.phone1 %}<i class="mdi mdi-phone"></i> {{client.phone1}}{% endif %}
+                            &nbsp;·&nbsp;
+                            <span class="pill">{{type_name}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tablar -->
+        <ul class="nav p-tabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-info" type="button"><i class="mdi mdi-account"></i> Ma'lumotlar</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pay" type="button"><i class="mdi mdi-cash-multiple"></i> Pul tarixi</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-products" type="button"><i class="mdi mdi-package-variant"></i> Mahsulot tarixi</button></li>
+        </ul>
+
+        <div class="tab-content">
+
+            <!-- MA'LUMOTLAR -->
+            <div class="tab-pane fade show active" id="tab-info">
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Ma'lumotlarni tahrirlash</h4>
+                        <form class="form-modern" method="post"> {% csrf_token %}
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Ismi / Nomi</label>
+                                    <input type="text" class="form-control" name="name" required value="{{client.name}}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Telefon 1</label>
+                                    <input type="text" class="form-control" name="phone1" value="{{client.phone1|default:''}}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Telefon 2</label>
+                                    <input type="text" class="form-control" name="phone2" value="{{client.phone2|default:''}}" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="fm-label">Karta raqami</label>
+                                    <input type="text" class="form-control" name="card_number" value="{{client.card_number|default:''}}" />
+                                </div>
+                                <div class="col-md-12 mb-3">
+                                    <label class="fm-label">Manzili</label>
+                                    <input type="text" class="form-control" name="address" value="{{client.address|default:''}}" />
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-content-save"></i> Saqlash</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PUL TARIXI -->
+            <div class="tab-pane fade" id="tab-pay">
+                {% if client_cashes %}
+                <div class="row mb-3">
+                    {% for cc in client_cashes %}
+                    <div class="col-md-3 col-6 mb-3">
+                        <div class="stat-card">
+                            <small>Balans · {{cc.get_currency_display}}</small>
+                            <h4>
+                                {% if cc.mount < 0 %}<span class="text-danger">{{cc.mount|intcomma}}</span>
+                                {% else %}<span class="text-success">{{cc.mount|intcomma}}</span>{% endif %}
+                                {{cc.get_currency_display}}
+                            </h4>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">To'lovlar tarixi</h4>
+                        <div class="table-responsive">
+                            <table class="tbl-modern">
+                                <thead>
+                                    <tr><th>Sana</th><th>Turi</th><th>Hamyon</th><th>Summa</th><th>Balans (keyin)</th><th>Izoh</th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in payments %}
+                                    <tr>
+                                        <td>{{p.date|date:"d.m.Y"}}</td>
+                                        <td>
+                                            {% if p.type == 1 %}<span class="badge-soft badge-green">Kirim</span>
+                                            {% else %}<span class="badge-soft badge-amber">Chiqim</span>{% endif %}
+                                        </td>
+                                        <td>{{p.cash.name|default:"—"}}</td>
+                                        <td>{{p.mount|intcomma}} {{p.get_currency_display}}</td>
+                                        <td>{{p.client_after|intcomma}} {{p.get_currency_display}}</td>
+                                        <td>{{p.comment|default:"—"}}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr class="empty-row"><td colspan="6">To'lovlar tarixi yo'q</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAHSULOT TARIXI -->
+            <div class="tab-pane fade" id="tab-products">
+                <div class="card soft-card">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">Mahsulot tarixi</h4>
+                        <div class="table-responsive">
+                            <table class="tbl-modern">
+                                <thead><tr><th>Sana</th><th>Turi</th><th>Mahsulotlar</th><th>Jami summa</th><th>Amallar</th></tr></thead>
+                                <tbody>
+                                    {% for t in turnovers %}
+                                    <tr>
+                                        <td>{{t.created_date|date:"d.m.Y H:i"}}</td>
+                                        <td>
+                                            {% if t.type == 1 %}<span class="badge-soft badge-blue">Sotuv</span>
+                                            {% else %}<span class="badge-soft badge-green">Kirim</span>{% endif %}
+                                        </td>
+                                        <td>{{t.products.all.count}} tur</td>
+                                        <td>{{t.total|intcomma}}</td>
+                                        <td style="text-align:right;">
+                                            <button type="button" class="act-btn act-blue" data-bs-toggle="modal" data-bs-target="#ctview{{t.id}}"><i class="mdi mdi-eye"></i></button>
+                                            <div class="modal fade" id="ctview{{t.id}}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg"><div class="modal-content">
+                                                    <div class="modal-header"><h5 class="modal-title">{{t.created_date|date:"d.m.Y H:i"}}</h5></div>
+                                                    <div class="modal-body">
+                                                        <table class="tbl-modern">
+                                                            <thead><tr><th>Mahsulot</th><th>Ombor</th><th>Soni</th><th>Narxi</th><th>Jami</th></tr></thead>
+                                                            <tbody>
+                                                                {% for pt in t.products.all %}
+                                                                <tr>
+                                                                    <td>{{pt.product.product.name}}</td>
+                                                                    <td>{{pt.product.storage.name}}</td>
+                                                                    <td>{{pt.mount}}</td>
+                                                                    <td>{{pt.price|intcomma}}</td>
+                                                                    <td>{{pt.total_price|intcomma}}</td>
+                                                                </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                                                    </div>
+                                                </div></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr class="empty-row"><td colspan="5">Mahsulot tarixi yo'q</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock wrapper %}

@@ -229,19 +229,19 @@
 
           <li class="menu-section">Mijozlar</li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link {% if '/clients/1' in request.path %}active{% endif %}" href="/usta/clients/1/">
               <i class="mdi mdi-account-group menu-icon"></i>
               <span class="menu-title">Haridorlar</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link {% if '/clients/2' in request.path %}active{% endif %}" href="/usta/clients/2/">
               <i class="mdi mdi-truck-outline menu-icon"></i>
               <span class="menu-title">Taminotchilar</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link {% if '/clients/3' in request.path %}active{% endif %}" href="/usta/clients/3/">
               <i class="mdi mdi-account-check menu-icon"></i>
               <span class="menu-title">Turli shaxslar</span>
             </a>
@@ -249,13 +249,13 @@
 
           <li class="menu-section">Moliya</li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link {% if '/kassa' in request.path %}active{% endif %}" href="/usta/kassa/">
               <i class="mdi mdi-safe menu-icon"></i>
               <span class="menu-title">Kassa</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link {% if '/turnover/1' in request.path %}active{% endif %}" href="/usta/turnover/1/">
               <i class="mdi mdi-cart-outline menu-icon"></i>
               <span class="menu-title">Sotuv</span>
             </a>
@@ -275,15 +275,21 @@
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link {% if '/turnover/2' in request.path %}active{% endif %}" href="/usta/turnover/2/">
               <i class="mdi mdi-arrow-down-bold-box-outline menu-icon"></i>
               <span class="menu-title">Mahsulot kirim</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/usta/">
+            <a class="nav-link" href="/usta/turnover/1/">
               <i class="mdi mdi-arrow-up-bold-box-outline menu-icon"></i>
               <span class="menu-title">Mahsulot chiqim</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if '/recipe' in request.path %}active{% endif %}" href="/usta/recipes/">
+              <i class="mdi mdi-puzzle-outline menu-icon"></i>
+              <span class="menu-title">Retseptlar</span>
             </a>
           </li>
         </ul>

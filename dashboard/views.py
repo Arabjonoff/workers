@@ -8,10 +8,12 @@ from django.contrib.auth.decorators import login_required
 from main.models import *
 from main.funcs import *
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Sum
+from django.db import transaction
 from .sms_sender import sender_code, sender_gived_money
 
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 def get_product_types():
     data = []
@@ -482,13 +484,15 @@ class ProductsView(LoginRequiredMixin, View):
         storage = request.POST.get('storage')
         mount = request.POST.get('mount')
         mtype = request.POST.get('mtype')
+        standard_price = request.POST.get('standard_price') or None
         try:
             storage_obj = get_object_or_404(Storage, id=storage, company=company)
             product = Product.objects.create(
                 company=company,
                 name=name,
                 type=type,
-                m_type=mtype
+                m_type=mtype,
+                standard_price=standard_price
             )
             PIS.objects.create(
                 company=company,
@@ -513,10 +517,12 @@ def edit_pis(request, id):
     mount = request.POST.get('mount')
     start_mount = request.POST.get('start_mount')
     mtype = request.POST.get('mtype')
+    standard_price = request.POST.get('standard_price') or None
     try:
         pis.product.name = name
         pis.product.type = type
         pis.product.m_type = mtype
+        pis.product.standard_price = standard_price
         pis.storage = get_object_or_404(Storage, id=storage, company=company)
         pis.mount = mount
         pis.start_mount = start_mount
@@ -540,5 +546,578 @@ def delete_pis(request, id):
 @method_decorator(is_staff, name='dispatch')
 class StoragesView(LoginRequiredMixin, View):
     def get(self, request):
-        storages = Storage.objects.filter(is_active=True, company=request.user.admin.company)
-        return render(request, 'dashboard/storage.html', {'storages': storages})
+        storages = Storage.objects.filter(is_active=True, company=request.user.admin.company).order_by('name')
+        context = {
+            'storages': storages,
+            'types': get_product_types(),
+        }
+        return render(request, 'dashboard/storage.html', context)
+
+    def post(self, request):
+        company = request.user.admin.company
+        try:
+            Storage.objects.create(
+                company=company,
+                name=request.POST.get('name'),
+                type=request.POST.get('type'),
+            )
+            messages.success(request, 'Ombor qo`shildi')
+        except Exception as error:
+            messages.error(request, f'Xatolik: {error}')
+        return redirect('/usta/storages/')
+
+
+@is_staff
+def edit_storage(request, id):
+    storage = get_object_or_404(Storage, id=id, company=request.user.admin.company)
+    try:
+        storage.name = request.POST.get('name')
+        storage.type = request.POST.get('type')
+        storage.save()
+        messages.success(request, 'Ombor saqlandi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('/usta/storages/')
+
+
+@is_staff
+def delete_storage(request, id):
+    storage = get_object_or_404(Storage, id=id, company=request.user.admin.company)
+    try:
+        storage.is_active = False
+        storage.save()
+        messages.success(request, 'Ombor o`chirildi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('/usta/storages/')
+
+
+CLIENT_TYPE_NAMES = {1: "Haridorlar", 2: "Taminotchilar", 3: "Turli shaxslar"}
+
+
+@method_decorator(is_staff, name='dispatch')
+class ClientsView(LoginRequiredMixin, View):
+    def get(self, request, type):
+        company = request.user.admin.company
+        query = request.GET.get('query')
+        clients = Client.objects.filter(company=company, type=type, is_active=True).order_by('-id')
+        if query:
+            clients = clients.filter(
+                Q(name__icontains=query) | Q(phone1__icontains=query) | Q(phone2__icontains=query)
+            )
+        context = {
+            'clients': clients,
+            'type': type,
+            'type_name': CLIENT_TYPE_NAMES.get(type, 'Mijozlar'),
+            'query': query or '',
+        }
+        return render(request, 'dashboard/clients.html', context)
+
+    def post(self, request, type):
+        company = request.user.admin.company
+        try:
+            Client.objects.create(
+                company=company,
+                name=request.POST.get('name'),
+                type=type,
+                phone1=request.POST.get('phone1') or None,
+                phone2=request.POST.get('phone2') or None,
+                card_number=request.POST.get('card_number') or None,
+                address=request.POST.get('address') or None,
+            )
+            messages.success(request, 'Mijoz qo`shildi')
+        except Exception as error:
+            messages.error(request, f'Xatolik: {error}')
+        return redirect('clients', type=type)
+
+
+@method_decorator(is_staff, name='dispatch')
+class ClientProfileView(LoginRequiredMixin, View):
+    def get(self, request, id):
+        company = request.user.admin.company
+        client = get_object_or_404(Client, id=id, company=company)
+        payments = Payment.objects.filter(
+            company=company, client_cash__client=client, is_active=True, type__in=[1, 2]
+        ).order_by('-created')
+        turnovers = _with_totals(
+            Turnover.objects.for_company(company).filter(client=client).order_by('-created_date')
+            .prefetch_related('products__product__product', 'products__product__storage')
+        )
+        context = {
+            'client': client,
+            'type_name': CLIENT_TYPE_NAMES.get(client.type, 'Mijoz'),
+            'client_cashes': client.cashs.filter(is_active=True),
+            'payments': payments,
+            'turnovers': turnovers,
+        }
+        return render(request, 'dashboard/client_detail.html', context)
+
+    def post(self, request, id):
+        company = request.user.admin.company
+        client = get_object_or_404(Client, id=id, company=company)
+        try:
+            client.name = request.POST.get('name')
+            client.phone1 = request.POST.get('phone1') or None
+            client.phone2 = request.POST.get('phone2') or None
+            client.card_number = request.POST.get('card_number') or None
+            client.address = request.POST.get('address') or None
+            client.save()
+            messages.success(request, 'Ma`lumotlar yangilandi')
+        except Exception as error:
+            messages.error(request, f'Xatolik: {error}')
+        return redirect('client_detail', id=client.id)
+
+
+@is_staff
+def delete_client(request, id):
+    client = get_object_or_404(Client, id=id, company=request.user.admin.company)
+    client.is_active = False
+    client.save()
+    messages.success(request, 'Mijoz o`chirildi')
+    return redirect('clients', type=client.type)
+
+
+def _get_or_create_client_cash(company, client, currency):
+    """Mijozning shu valyutadagi sub-hisobini topadi, bo'lmasa yaratadi.
+    Mantiq api/views.py PaymentsViewSet.add bilan bir xil bo'lishi kerak."""
+    client_cash = Cash.objects.filter(client=client, currency=currency, company=company).first()
+    if not client_cash:
+        client_cash = Cash.objects.create(company=company, client=client, currency=currency, name=f'{client.name}')
+    return client_cash
+
+
+def _parse_mount(value):
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError):
+        raise ValueError('Summa noto`g`ri kiritildi')
+
+
+@method_decorator(is_staff, name='dispatch')
+class KassaView(LoginRequiredMixin, View):
+    def get(self, request):
+        company = request.user.admin.company
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        payments = Payment.objects.filter(
+            company=company, is_active=True, type__in=[1, 2, 3]
+        ).order_by('-created')
+        if start_date and end_date:
+            payments = payments.filter(date__date__gte=start_date, date__date__lte=end_date)
+        else:
+            payments = payments.filter(date__date__gte=datetime.now().date().replace(day=1))
+        context = {
+            'cashes': Cash.objects.filter(company=company, main=True, is_active=True),
+            'clients': Client.objects.filter(company=company, is_active=True).order_by('name'),
+            'categories': OutcomeCategory.objects.filter(company=company, is_active=True),
+            'payments': payments,
+            'filter_date': {'start_date': start_date, 'end_date': end_date},
+            'currencies': CURRENCY_TYPES,
+        }
+        return render(request, 'dashboard/kassa.html', context)
+
+
+@is_staff
+def add_cash(request):
+    company = request.user.admin.company
+    try:
+        mount = _parse_mount(request.POST.get('mount') or 0)
+        Cash.objects.create(
+            company=company,
+            name=request.POST.get('name'),
+            currency=request.POST.get('currency'),
+            mount=mount,
+            start_mount=mount,
+            main=True,
+        )
+        messages.success(request, 'Hamyon qo`shildi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('kassa')
+
+
+@is_staff
+def add_outcome_category(request):
+    company = request.user.admin.company
+    try:
+        OutcomeCategory.objects.create(company=company, name=request.POST.get('name'))
+        messages.success(request, 'Turkum qo`shildi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('kassa')
+
+
+def _record_client_payment(company, cash, client, mount, direction, comment=None, date=None):
+    """Haqiqiy pul harakati: cash va client_cash'ni yangilaydi, Payment yozadi.
+    direction='in'  -> mijozdan pul keldi  (Kirim, type=1, kassa +, mijoz qarzi -)
+    direction='out' -> mijozga pul berildi (Chiqim, type=2, kassa -, mijoz qarzi +)
+    `cash_income`/`cash_outcome` va Turnover to'lovi (Sotuv/Olish) shu funksiyani ishlatadi,
+    shunda ikkalasida ham bir xil hisob-kitob kafolatlanadi."""
+    client_cash = _get_or_create_client_cash(company, client, cash.currency)
+    client_before = client_cash.mount
+    cash_before = cash.mount
+    if direction == 'in':
+        cash.mount += mount
+        client_cash.mount -= mount
+        p_type = 1
+    else:
+        cash.mount -= mount
+        client_cash.mount += mount
+        p_type = 2
+    Payment.objects.create(
+        company=company, cash=cash, client_cash=client_cash,
+        mount=mount, date=date or datetime.now(),
+        comment=comment or 'Izoh yo`q',
+        currency=cash.currency, cash_before=cash_before, cash_after=cash.mount,
+        client_before=client_before, client_after=client_cash.mount, type=p_type
+    )
+    cash.save()
+    client_cash.save()
+    return client_cash
+
+
+@is_staff
+def cash_income(request):
+    """Kirim: mijozdan pul kelib tushdi -> kassa oshadi, mijoz qarzi kamayadi."""
+    company = request.user.admin.company
+    try:
+        cash = get_object_or_404(Cash, id=request.POST.get('cash'), company=company)
+        client = get_object_or_404(Client, id=request.POST.get('client'), company=company)
+        mount = _parse_mount(request.POST.get('mount'))
+        _record_client_payment(company, cash, client, mount, 'in', request.POST.get('comment'), request.POST.get('date'))
+        messages.success(request, 'Kirim qilindi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('kassa')
+
+
+@is_staff
+def cash_outcome(request):
+    """Chiqim: mijozga pul berildi -> kassa kamayadi, mijoz qarzi oshadi."""
+    company = request.user.admin.company
+    try:
+        cash = get_object_or_404(Cash, id=request.POST.get('cash'), company=company)
+        client = get_object_or_404(Client, id=request.POST.get('client'), company=company)
+        mount = _parse_mount(request.POST.get('mount'))
+        _record_client_payment(company, cash, client, mount, 'out', request.POST.get('comment'), request.POST.get('date'))
+        messages.success(request, 'Chiqim qilindi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('kassa')
+
+
+@is_staff
+def cash_expense(request):
+    """Harajat: kassadan xarajat uchun pul chiqdi -> mijozga aloqasi yo'q."""
+    company = request.user.admin.company
+    try:
+        cash = get_object_or_404(Cash, id=request.POST.get('cash'), company=company)
+        category_id = request.POST.get('category')
+        category = get_object_or_404(OutcomeCategory, id=category_id, company=company) if category_id else None
+        mount = _parse_mount(request.POST.get('mount'))
+
+        cash_before = cash.mount
+        cash.mount -= mount
+
+        Payment.objects.create(
+            company=company, cash=cash, mount=mount,
+            date=request.POST.get('date') or datetime.now(),
+            comment=request.POST.get('comment') or 'Izoh yo`q',
+            currency=cash.currency, cash_before=cash_before, cash_after=cash.mount,
+            type=3, category=category
+        )
+        cash.save()
+        messages.success(request, 'Harajat qo`shildi')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('kassa')
+
+
+TURNOVER_TYPE_NAMES = {1: 'Sotuv', 2: 'Mahsulot kirim'}
+
+
+def _with_totals(turnovers):
+    """Har bir Turnover'ga .total (ProductTurnover'lar yig'indisi) qo'shib beradi."""
+    turnovers = list(turnovers)
+    for t in turnovers:
+        t.total = sum((pt.total_price for pt in t.products.all()), Decimal('0'))
+    return turnovers
+
+
+@method_decorator(is_staff, name='dispatch')
+class TurnoverView(LoginRequiredMixin, View):
+    def get(self, request, type):
+        company = request.user.admin.company
+        turnovers = _with_totals(
+            Turnover.objects.for_company(company).filter(type=type).order_by('-created_date')
+            .prefetch_related('products__product__product', 'products__product__storage')
+        )
+        pis_items = PIS.objects.filter(company=company, is_active=True).select_related('product', 'storage')
+        if type == 1:
+            pis_items = pis_items.filter(mount__gt=0)
+        context = {
+            'turnovers': turnovers,
+            'type': type,
+            'type_name': TURNOVER_TYPE_NAMES.get(type, 'Tranzaksiya'),
+            'clients': Client.objects.filter(company=company, is_active=True).order_by('name'),
+            'pis_items': pis_items,
+            'cashes': Cash.objects.filter(company=company, main=True, is_active=True),
+        }
+        return render(request, 'dashboard/turnover.html', context)
+
+    def post(self, request, type):
+        company = request.user.admin.company
+        try:
+            client = get_object_or_404(Client, id=request.POST.get('client'), company=company)
+            cash = get_object_or_404(Cash, id=request.POST.get('cash'), company=company)
+            pis_ids = request.POST.getlist('product[]')
+            mounts = request.POST.getlist('mount[]')
+            prices = request.POST.getlist('price[]')
+            bonus_prices = request.POST.getlist('bonus_price[]')
+            bonus_mounts = request.POST.getlist('bonus_mount[]')
+
+            if not pis_ids:
+                raise ValueError('Kamida bitta mahsulot qo`shing')
+
+            lines = []
+            for i, pis_id in enumerate(pis_ids):
+                if not pis_id:
+                    continue
+                pis = get_object_or_404(PIS, id=pis_id, company=company)
+                mount = _parse_mount(mounts[i])
+                price = _parse_mount(prices[i])
+                bonus_price = _parse_mount(bonus_prices[i]) if i < len(bonus_prices) and bonus_prices[i] else Decimal('0')
+                bonus_mount = _parse_mount(bonus_mounts[i]) if i < len(bonus_mounts) and bonus_mounts[i] else Decimal('0')
+                total_mount = mount + bonus_mount
+                if type == 1 and total_mount > pis.mount:
+                    raise ValueError(f'"{pis.product.name}" omborda yetarli emas (mavjud: {pis.mount})')
+                lines.append((pis, mount, price, bonus_price, bonus_mount))
+
+            if not lines:
+                raise ValueError('Kamida bitta mahsulot qo`shing')
+
+            turnover = Turnover.objects.create(type=type, client=client, finished=True, finished_date=datetime.now())
+            total_price = Decimal('0')
+            for pis, mount, price, bonus_price, bonus_mount in lines:
+                pt = ProductTurnover.objects.create(
+                    product=pis, mount=mount, price=price,
+                    bonus_price=bonus_price, bonus_mount=bonus_mount, status=2
+                )
+                turnover.products.add(pt)
+                total_price += pt.total_price
+                if type == 1:
+                    pis.mount -= (mount + bonus_mount)
+                else:
+                    pis.mount += (mount + bonus_mount)
+                pis.save()
+
+            client_cash = _get_or_create_client_cash(company, client, cash.currency)
+            if type == 1:
+                client_cash.mount += total_price
+            else:
+                client_cash.mount -= total_price
+            client_cash.save()
+
+            if request.POST.get('paid_now') == 'on':
+                paid_amount = _parse_mount(request.POST.get('paid_amount') or total_price)
+                direction = 'in' if type == 1 else 'out'
+                _record_client_payment(
+                    company, cash, client, paid_amount, direction,
+                    comment=f"{TURNOVER_TYPE_NAMES.get(type)} #{turnover.id} to`lovi",
+                    date=request.POST.get('date')
+                )
+
+            messages.success(request, f'{TURNOVER_TYPE_NAMES.get(type)} saqlandi. Jami: {total_price}')
+        except Exception as error:
+            messages.error(request, f'Xatolik: {error}')
+        return redirect('turnover', type=type)
+
+
+def _material_price(material, company):
+    """Hom-ashyo narxini aniqlaydi: standart narx bo'lsa undan, bo'lmasa
+    oxirgi 'Olish' (Mahsulot kirim) tranzaksiyasidagi narxdan. Topilmasa None."""
+    if material.standard_price is not None:
+        return material.standard_price
+    last = ProductTurnover.objects.filter(
+        product__product=material, product__company=company, turnover__type=2
+    ).order_by('-turnover__created_date', '-id').first()
+    return last.price if last else None
+
+
+def _material_stock(material, company):
+    total = PIS.objects.filter(product=material, company=company, is_active=True).aggregate(s=Sum('mount'))['s']
+    return total or Decimal('0')
+
+
+def _recipe_cost(product, company):
+    """1 dona tayyor mahsulot narxini hisoblaydi. Narxi nomalum hom-ashyolar bo'lsa,
+    ularning nomi ro'yxatda qaytariladi (jami summaga qo'shilmaydi)."""
+    items = RecipeItem.objects.filter(product=product).select_related('material')
+    total = Decimal('0')
+    missing = []
+    for item in items:
+        price = _material_price(item.material, company)
+        if price is None:
+            missing.append(item.material.name)
+        else:
+            total += price * item.mount
+    return total, missing
+
+
+def _recipe_stock_check(product, company, count):
+    """Berilgan `count` dona tayyorlash uchun har bir hom-ashyo yetarlimi, va
+    joriy zaxira bilan MAKSIMAL nechta dona tayyorlash mumkinligini hisoblaydi."""
+    items = RecipeItem.objects.filter(product=product).select_related('material')
+    rows = []
+    max_producible = None
+    for item in items:
+        stock = _material_stock(item.material, company)
+        needed = item.mount * count
+        possible = int(stock // item.mount) if item.mount > 0 else 0
+        max_producible = possible if max_producible is None else min(max_producible, possible)
+        rows.append({
+            'material': item.material,
+            'per_unit': item.mount,
+            'needed': needed,
+            'stock': stock,
+            'enough': stock >= needed,
+            'shortage': max(needed - stock, Decimal('0')),
+        })
+    return rows, max_producible
+
+
+@method_decorator(is_staff, name='dispatch')
+class RecipeListView(LoginRequiredMixin, View):
+    def get(self, request):
+        company = request.user.admin.company
+        products = Product.objects.filter(company=company).order_by('name')
+        rows = []
+        for p in products:
+            items = RecipeItem.objects.filter(product=p)
+            if items.exists():
+                cost, missing = _recipe_cost(p, company)
+                _, max_producible = _recipe_stock_check(p, company, Decimal('1'))
+                rows.append({
+                    'product': p, 'count': items.count(), 'cost': cost,
+                    'missing': missing, 'max_producible': max_producible,
+                })
+        context = {'rows': rows, 'products': products}
+        return render(request, 'dashboard/recipes.html', context)
+
+
+@method_decorator(is_staff, name='dispatch')
+class RecipeDetailView(LoginRequiredMixin, View):
+    def get(self, request, product_id):
+        company = request.user.admin.company
+        product = get_object_or_404(Product, id=product_id, company=company)
+        items = RecipeItem.objects.filter(product=product).select_related('material')
+        materials = Product.objects.filter(company=company).exclude(id=product.id).order_by('name')
+        count_raw = request.GET.get('count')
+        try:
+            count = Decimal(str(count_raw)) if count_raw else Decimal('1')
+        except InvalidOperation:
+            count = Decimal('1')
+        cost, missing_price = _recipe_cost(product, company)
+        check_rows, max_producible = _recipe_stock_check(product, company, count)
+        context = {
+            'product': product,
+            'items': items,
+            'materials': materials,
+            'storages': Storage.objects.filter(company=company, is_active=True).order_by('name'),
+            'cost': cost,
+            'missing_price': missing_price,
+            'count': count,
+            'check_rows': check_rows,
+            'max_producible': max_producible,
+        }
+        return render(request, 'dashboard/recipe_detail.html', context)
+
+    def post(self, request, product_id):
+        company = request.user.admin.company
+        product = get_object_or_404(Product, id=product_id, company=company)
+        try:
+            material_ids = request.POST.getlist('material[]')
+            mounts = request.POST.getlist('mount[]')
+            new_items = []
+            seen = set()
+            for i, mid in enumerate(material_ids):
+                if not mid or mid in seen:
+                    continue
+                seen.add(mid)
+                material = get_object_or_404(Product, id=mid, company=company)
+                mount = _parse_mount(mounts[i])
+                if mount <= 0:
+                    continue
+                new_items.append((material, mount))
+            if not new_items:
+                raise ValueError('Kamida bitta hom-ashyo qo`shing')
+            RecipeItem.objects.filter(product=product).delete()
+            for material, mount in new_items:
+                RecipeItem.objects.create(product=product, material=material, mount=mount)
+            messages.success(request, 'Retsept saqlandi')
+        except Exception as error:
+            messages.error(request, f'Xatolik: {error}')
+        return redirect('recipe_detail', product_id=product.id)
+
+
+def _consume_material(material, company, needed):
+    """Material zaxirasini turli omborlardagi PIS yozuvlaridan (eng ko'p
+    zaxirali ombordan boshlab) ketma-ket kamaytiradi."""
+    remaining = needed
+    pis_entries = PIS.objects.filter(
+        product=material, company=company, is_active=True, mount__gt=0
+    ).order_by('-mount')
+    for pis in pis_entries:
+        if remaining <= 0:
+            break
+        take = min(pis.mount, remaining)
+        pis.mount -= take
+        pis.save()
+        remaining -= take
+    if remaining > 0:
+        raise ValueError(f'"{material.name}" yetarli emas (yetishmayapti: {remaining})')
+
+
+@is_staff
+def produce_recipe(request, product_id):
+    """Retsept asosida N dona tayyor mahsulot ishlab chiqaradi: xom-ashyoni
+    omborlardan avtomatik kamaytiradi va tayyor mahsulotni tanlangan omborga qo'shadi."""
+    company = request.user.admin.company
+    product = get_object_or_404(Product, id=product_id, company=company)
+    try:
+        count_raw = request.POST.get('count')
+        try:
+            count = Decimal(str(count_raw)) if count_raw else None
+        except InvalidOperation:
+            count = None
+        if not count or count <= 0:
+            raise ValueError('Nechta dona ishlab chiqarilishini kiriting')
+
+        storage = get_object_or_404(Storage, id=request.POST.get('storage'), company=company)
+
+        items = list(RecipeItem.objects.filter(product=product).select_related('material'))
+        if not items:
+            raise ValueError('Avval retsept belgilang')
+
+        check_rows, _ = _recipe_stock_check(product, company, count)
+        not_enough = [r for r in check_rows if not r['enough']]
+        if not_enough:
+            details = ', '.join(f"{r['material'].name} (yetmaydi: {r['shortage']})" for r in not_enough)
+            raise ValueError(f'Xom-ashyo yetarli emas: {details}')
+
+        with transaction.atomic():
+            for item in items:
+                _consume_material(item.material, company, item.mount * count)
+            pis, created = PIS.objects.get_or_create(
+                product=product, storage=storage, company=company, is_active=True,
+                defaults={'mount': 0, 'start_mount': 0}
+            )
+            pis.mount += count
+            if created:
+                pis.start_mount = count
+            pis.save()
+
+        messages.success(request, f'{count} dona "{product.name}" ishlab chiqarildi va "{storage.name}" omboriga qo`shildi.')
+    except Exception as error:
+        messages.error(request, f'Xatolik: {error}')
+    return redirect('recipe_detail', product_id=product.id)

@@ -62,12 +62,20 @@
                                 <div class="col-sm-9">
                                     <select name="mtype" class="form-control" required>
                                         <option label=""></option>
-                                        
+
                                         {% for type in mtypes %}
                                             <option value="{{type.id}}">{{type.name}}</option>
                                         {% endfor %}
-                                            
+
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group row">
+                                <label class="col-sm-3 col-form-label">Standart narx:</label>
+                                <div class="col-sm-9">
+                                    <input type="number" step="0.01" class="form-control" name="standard_price" placeholder="Ixtiyoriy — retsept hisob-kitobi uchun" />
                                 </div>
                             </div>
                         </div>
@@ -124,6 +132,9 @@
                             <th>
                                 Ombori
                             </th>
+                            <th>
+                                Standart narx
+                            </th>
                             <th></th>
                         </tr>
                     </thead>
@@ -146,6 +157,9 @@
                             </td>
                             <td>
                                 {{p.storage.name}}
+                            </td>
+                            <td>
+                                {{p.product.standard_price|default:"—"}}
                             </td>
                             <td style="float: right;">
                                 <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
@@ -221,6 +235,9 @@
                                                         {% endfor %}
                                                             
                                                     </select>
+
+                                                    <label for="">Standart narx:</label>
+                                                    <input type="number" step="0.01" class="form-control mb-3" value="{{p.product.standard_price|default_if_none:''}}" name="standard_price" placeholder="Ixtiyoriy — retsept hisob-kitobi uchun">
                                                 </div>
                                                 <div class="modal-footer">
                                                     <button type="submit" class="btn btn-primary">Saqlash</button>

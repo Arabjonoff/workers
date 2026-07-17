@@ -1,0 +1,231 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<style>
+    .line-table th, .line-table td{padding:8px;vertical-align:middle;}
+    .line-table input, .line-table select{padding:6px 8px;font-size:13px;}
+    .line-total{font-weight:600;color:#282f3a;white-space:nowrap;}
+    .grand-total{font-size:20px;font-weight:700;color:#4d83ff;}
+    .paid-fields{display:none;}
+    .paid-fields.show{display:flex;}
+</style>
+
+<div class="main-panel">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
+
+    <div class="page-hero">
+      <h2>{% if type == 1 %}🛒{% else %}📦{% endif %} {{type_name}}</h2>
+      <p>{% if type == 1 %}Mijozga mahsulot sotish{% else %}Taminotchidan mahsulot olish{% endif %}</p>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-4">Yangi {{type_name|lower}}</h4>
+        {% if not pis_items %}
+        <p class="text-muted">{% if type == 1 %}Omborda sotiladigan mahsulot yo'q.{% else %}Avval "Mahsulotlar" bo'limida mahsulot qo'shing.{% endif %}</p>
+        {% elif not clients %}
+        <p class="text-muted">Avval Mijozlar bo'limidan mijoz qo'shing.</p>
+        {% elif not cashes %}
+        <p class="text-muted">Avval Kassa bo'limidan hamyon qo'shing.</p>
+        {% else %}
+        <form class="form-modern" method="post" id="turnoverForm"> {% csrf_token %}
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="fm-label">Mijoz</label>
+              <select name="client" class="form-control" required>
+                <option value=""></option>
+                {% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="fm-label">Hamyon</label>
+              <select name="cash" class="form-control" id="cashSelect" required>
+                <option value=""></option>
+                {% for cash in cashes %}<option value="{{cash.id}}">{{cash.name}} ({{cash.get_currency_display}})</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="fm-label">Sana</label>
+              <input type="date" class="form-control" name="date" />
+            </div>
+          </div>
+
+          <div class="table-responsive mb-2">
+            <table class="tbl-modern line-table" id="linesTable">
+              <thead>
+                <tr>
+                  <th style="min-width:220px;">Mahsulot</th>
+                  <th style="width:100px;">Soni</th>
+                  <th style="width:120px;">Narxi</th>
+                  <th style="width:110px;">Bonus narx</th>
+                  <th style="width:100px;">Bonus soni</th>
+                  <th style="width:120px;">Jami</th>
+                  <th style="width:40px;"></th>
+                </tr>
+              </thead>
+              <tbody id="linesBody"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary mb-3" id="addLineBtn"><i class="mdi mdi-plus"></i> Qator qo'shish</button>
+
+          <div class="d-flex justify-content-end mb-4">
+            <div class="text-right">
+              <small class="text-muted">JAMI SUMMA</small>
+              <div class="grand-total" id="grandTotal">0</div>
+            </div>
+          </div>
+
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" name="paid_now" id="paidNow">
+            <label class="form-check-label" for="paidNow">Hoziroq to'landi</label>
+          </div>
+          <div class="row paid-fields" id="paidFields">
+            <div class="col-md-4 mb-3">
+              <label class="fm-label">To'langan summa</label>
+              <input type="number" step="0.01" class="form-control" name="paid_amount" id="paidAmount" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-check"></i> Saqlash</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-3">{{type_name}} tarixi</h4>
+        <div class="table-responsive">
+          <table class="tbl-modern">
+            <thead><tr><th>Sana</th><th>Mijoz</th><th>Mahsulotlar</th><th>Jami summa</th><th>Amallar</th></tr></thead>
+            <tbody>
+              {% for t in turnovers %}
+              <tr>
+                <td>{{t.created_date|date:"d.m.Y H:i"}}</td>
+                <td>{{t.client.name}}</td>
+                <td>{{t.products.all.count}} tur</td>
+                <td>{{t.total|intcomma}}</td>
+                <td style="text-align:right;">
+                  <button type="button" class="act-btn act-blue" data-bs-toggle="modal" data-bs-target="#tview{{t.id}}"><i class="mdi mdi-eye"></i></button>
+                  <div class="modal fade" id="tview{{t.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg"><div class="modal-content">
+                      <div class="modal-header"><h5 class="modal-title">{{t.client.name}} — {{t.created_date|date:"d.m.Y H:i"}}</h5></div>
+                      <div class="modal-body">
+                        <table class="tbl-modern">
+                          <thead><tr><th>Mahsulot</th><th>Ombor</th><th>Soni</th><th>Narxi</th><th>Bonus</th><th>Jami</th></tr></thead>
+                          <tbody>
+                            {% for pt in t.products.all %}
+                            <tr>
+                              <td>{{pt.product.product.name}}</td>
+                              <td>{{pt.product.storage.name}}</td>
+                              <td>{{pt.mount}}</td>
+                              <td>{{pt.price|intcomma}}</td>
+                              <td>{% if pt.bonus_mount %}{{pt.bonus_mount}} dona / {{pt.bonus_price|intcomma}}{% else %}—{% endif %}</td>
+                              <td>{{pt.total_price|intcomma}}</td>
+                            </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Yopish</button>
+                      </div>
+                    </div></div>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="empty-row"><td colspan="5">Hozircha yozuv yo'q</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mahsulot tanlash uchun ma'lumot (JS uchun) -->
+{% if pis_items %}
+<script id="pis_data" type="application/json">
+[
+  {% for p in pis_items %}
+  {"id": {{p.id}}, "label": "{{p.product.name|escapejs}} — {{p.storage.name|escapejs}} ({{p.mount}} {{p.product.get_m_type_display}} mavjud)", "mount": {{p.mount}}}{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]
+</script>
+{% endif %}
+
+<script>
+window.addEventListener('load', function () {
+  var pisData = [];
+  var pisEl = document.getElementById('pis_data');
+  if (pisEl) pisData = JSON.parse(pisEl.textContent);
+
+  var linesBody = document.getElementById('linesBody');
+  var grandTotalEl = document.getElementById('grandTotal');
+  var paidNow = document.getElementById('paidNow');
+  var paidFields = document.getElementById('paidFields');
+  var paidAmount = document.getElementById('paidAmount');
+
+  function pisOptions() {
+    var html = '<option value=""></option>';
+    pisData.forEach(function (p) {
+      html += '<option value="' + p.id + '" data-mount="' + p.mount + '">' + p.label + '</option>';
+    });
+    return html;
+  }
+
+  function recalcRow(tr) {
+    var mount = parseFloat(tr.querySelector('.f-mount').value) || 0;
+    var price = parseFloat(tr.querySelector('.f-price').value) || 0;
+    var bprice = parseFloat(tr.querySelector('.f-bonus-price').value) || 0;
+    var total = (price - bprice) * mount;
+    tr.querySelector('.f-total').textContent = total.toLocaleString('ru-RU');
+    recalcGrand();
+  }
+
+  function recalcGrand() {
+    var total = 0;
+    linesBody.querySelectorAll('tr').forEach(function (tr) {
+      var mount = parseFloat(tr.querySelector('.f-mount').value) || 0;
+      var price = parseFloat(tr.querySelector('.f-price').value) || 0;
+      var bprice = parseFloat(tr.querySelector('.f-bonus-price').value) || 0;
+      total += (price - bprice) * mount;
+    });
+    grandTotalEl.textContent = total.toLocaleString('ru-RU');
+    if (paidNow.checked && !paidAmount.dataset.touched) paidAmount.value = total;
+  }
+
+  function addLine() {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><select class="form-control f-product" name="product[]" required>' + pisOptions() + '</select></td>' +
+      '<td><input type="number" step="0.01" class="form-control f-mount" name="mount[]" required></td>' +
+      '<td><input type="number" step="0.01" class="form-control f-price" name="price[]" required></td>' +
+      '<td><input type="number" step="0.01" class="form-control f-bonus-price" name="bonus_price[]" value="0"></td>' +
+      '<td><input type="number" step="0.01" class="form-control f-bonus-mount" name="bonus_mount[]" value="0"></td>' +
+      '<td class="line-total f-total">0</td>' +
+      '<td><button type="button" class="act-btn act-red remove-line"><i class="mdi mdi-close"></i></button></td>';
+    linesBody.appendChild(tr);
+    tr.querySelectorAll('.f-mount, .f-price, .f-bonus-price').forEach(function (inp) {
+      inp.addEventListener('input', function () { recalcRow(tr); });
+    });
+    tr.querySelector('.remove-line').addEventListener('click', function () {
+      tr.remove(); recalcGrand();
+    });
+  }
+
+  document.getElementById('addLineBtn').addEventListener('click', addLine);
+  addLine();
+
+  paidNow.addEventListener('change', function () {
+    paidFields.classList.toggle('show', paidNow.checked);
+    if (paidNow.checked) recalcGrand();
+  });
+  paidAmount.addEventListener('input', function () { paidAmount.dataset.touched = '1'; });
+});
+</script>
+{% endblock wrapper %}

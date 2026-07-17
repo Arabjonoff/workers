@@ -3,252 +3,106 @@
 
 {% block wrapper %}
 <div class="main-panel">
-    <div class="content-wrapper">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
 
-        {% include 'messages.html' %}
-        <div class="card mb-5">
-            <div class="card-body">
-                <h4 class="card-title">Mahsulot qo'shish</h4>
-                <form class="form-sample" method="post"> {% csrf_token %}
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group row">
-                                <label class="col-sm-3 col-form-label">Nomi:</label>
-                                <div class="col-sm-9">
-                                    <input type="text" class="form-control" name="name" required/>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group row">
-                                <label class="col-sm-3 col-form-label">Turi:</label>
-                                <div class="col-sm-9">
-                                    <select name="type" class="form-control" required>
-                                        <option label=""></option>
-                                        
-                                        {% for type in types %}
-                                            <option value="{{type.id}}">{{type.name}}</option>
-                                        {% endfor %}
-                                            
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group row">
-                                <label class="col-sm-3 col-form-label">Ombori:</label>
-                                <div class="col-sm-9">
-                                    <select name="storage" class="form-control" required>
-                                        <option label=""></option>
-                                        {% for s in storages %}
-                                        <option value="{{s.id}}">{{s.name}}</option>
-                                        {% endfor %}
-                                        
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group row">
-                                <label class="col-sm-3 col-form-label">Soni:</label>
-                                <div class="col-sm-9">
-                                    <input type="number" class="form-control" name="mount" required />
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group row">
-                                <label class="col-sm-3 col-form-label">O'lchov birligi:</label>
-                                <div class="col-sm-9">
-                                    <select name="mtype" class="form-control" required>
-                                        <option label=""></option>
-                                        
-                                        {% for type in mtypes %}
-                                            <option value="{{type.id}}">{{type.name}}</option>
-                                        {% endfor %}
-                                            
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Tasdiqlash</button>
-                    <button type="reset" class="btn btn-light">Bekor qilish</button>
-                </form>
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-body">
-                <h4 class="card-title">Mahsulotlar</h4>
-                <div style="float: right; margin-top: -50px;">
-                    <!-- <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#deleteall">Barchasini o'chirish</button> -->
-                    
-                    <div class="modal fade" id="deleteall" tabindex="-1" aria-labelledby="exampleModalLabel"
-                        aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content" style="width: 750px;">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="exampleModalLabel">
-                                        Barcha tarixni o'chirish
-                                    </h5>
-                                </div>
-                                <div class="modal-body">
-                                    <span class="text-danger">Hamma ishchiga berilgan pullar tarixi butunlay o'chib
-                                        ketadi!!!</span>
-                                </div>
-                                <div class="modal-footer">
-                                    <a href="/usta/delete/?type=balance_all" class="btn btn-danger">Tasdiqlash</a>
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor
-                                        qilish</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>
-                                Nomi
-                            </th>
-                            <th>
-                                Turi
-                            </th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-
-                        {% for p in storages %}
-
-                        <tr>
-                            <td>
-                                {{p.name}}
-                            </td>
-                            <td>
-                                {{p.get_type_display}}
-                            </td>
-                            <td style="float: right;">
-                                <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#delete{{p.id}}">O'chirish</button>
-
-                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                                    data-bs-target="#worklist{{p.id}}">Tahrirlash</button>
-                                <!-- Modal edit -->
-                                <div class="modal fade" id="worklist{{p.id}}" tabindex="-1"
-                                    aria-labelledby="exampleModalLabel" aria-hidden="true">
-                                    <form action="/usta/product_edit/{{p.id}}" method="post">{% csrf_token %}
-                                        <div class="modal-dialog">
-                                            <div class="modal-content" style="width: 750px;">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="exampleModalLabel">
-                                                        <small>Mahsulotni tahrirlash: </small> {{p.product.name}}
-                                                    </h5>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <label for="">Nomi:</label>
-                                                    <input type="text" class="form-control mb-3" value="{{p.product.name}}" name="name">
-                                                    
-                                                    <label for="">Turi:</label>
-                                                    <select name="type" class="form-control mb-3" required>
-                                                        <option label=""></option>
-                                                        
-                                                        {% for type in types %}
-                                                        <option
-                                                        
-                                                        {% if type.id == p.product.type %}
-                                                        selected
-                                                        {% endif %}
-                                                        
-                                                        value="{{type.id}}">{{type.name}}</option>
-                                                        {% endfor %}
-                                                        
-                                                    </select>
-                                                    
-                                                    <label for="">Ombori:</label>
-                                                    <select name="storage" class="form-control mb-3" required>
-                                                        <option label=""></option>
-                                                        
-                                                        {% for s in storages %}
-                                                        <option
-                                                        
-                                                        {% if s.id == p.storage.id %}
-                                                        selected
-                                                        {% endif %}
-                                                        
-                                                        value="{{s.id}}">{{s.name}}</option>
-                                                        {% endfor %}
-                                                        
-                                                    </select>
-
-                                                    <label for="">Soni:</label>
-                                                    <input type="number" class="form-control mb-3" value="{{p.mount}}" name="mount">
-
-                                                    <label for="">Boshlang'ich soni:</label>
-                                                    <input type="number" class="form-control mb-3" value="{{p.start_mount}}" name="start_mount">
-                                                    
-                                                    <label for="">O'lchov birligi:</label>
-                                                    <select name="mtype" class="form-control mb-3" required>
-                                                        <option label=""></option>
-                                                        
-                                                        {% for type in mtypes %}
-                                                            <option
-                                                            
-                                                            {% if type.id == p.product.m_type %}
-                                                                selected
-                                                            {% endif %}
-                                                                
-                                                            value="{{type.id}}">{{type.name}}</option>
-                                                        {% endfor %}
-                                                            
-                                                    </select>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="submit" class="btn btn-primary">Saqlash</button>
-                                                    <button type="button" class="btn btn-secondary"
-                                                    data-bs-dismiss="modal">Yopish</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-
-                                <!-- Modal delete  -->
-                                <div class="modal fade" id="delete{{p.id}}" tabindex="-1"
-                                    aria-labelledby="exampleModalLabel" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content" style="width: 750px;">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="exampleModalLabel">
-                                                    {{ p.product.name }}
-                                                </h5>
-                                            </div>
-                                            <div class="modal-body">
-                                                <span class="text-danger">Ushbu mahsulotni o`chirishni istaysizmi ?</span>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <a href="/usta/product_delete/{{p.id}}"
-                                                    class="btn btn-danger">Tasdiqlash</a>
-                                                <button type="button" class="btn btn-secondary"
-                                                    data-bs-dismiss="modal">Bekor qilish</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="page-hero">
+      <h2>🏬 Omborlar</h2>
+      <p>Mahsulotlar saqlanadigan omborlar ro'yxati</p>
     </div>
-</div>
-<script src="/static/js/jquery.js"></script>
-<script>
-    
-</script>
 
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-4">Ombor qo'shish</h4>
+        <form class="form-modern" method="post"> {% csrf_token %}
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="fm-label">Nomi</label>
+              <input type="text" class="form-control" name="name" required />
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="fm-label">Turi</label>
+              <select name="type" class="form-control" required>
+                <option value=""></option>
+                {% for type in types %}<option value="{{type.id}}">{{type.name}}</option>{% endfor %}
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-plus"></i> Qo'shish</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card soft-card">
+      <div class="card-body">
+        <h4 class="card-title mb-3">Omborlar ro'yxati</h4>
+        <div class="table-responsive">
+          <table class="tbl-modern">
+            <thead><tr><th>Nomi</th><th>Turi</th><th>Mahsulot turlari soni</th><th>Amallar</th></tr></thead>
+            <tbody>
+              {% for s in storages %}
+              <tr>
+                <td style="font-weight:600;">{{s.name}}</td>
+                <td>{{s.get_type_display}}</td>
+                <td>{{s.pis_set.count}} tur</td>
+                <td style="text-align:right;">
+                  <button type="button" class="act-btn act-amber" title="Tahrirlash"
+                    data-bs-toggle="modal" data-bs-target="#edit{{s.id}}"><i class="mdi mdi-pencil"></i></button>
+                  <button type="button" class="act-btn act-red" title="O'chirish"
+                    data-bs-toggle="modal" data-bs-target="#delete{{s.id}}"><i class="mdi mdi-delete"></i></button>
+
+                  <div class="modal fade" id="edit{{s.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                      <form method="post" action="/usta/storage_edit/{{s.id}}"> {% csrf_token %}
+                        <div class="modal-header"><h5 class="modal-title">Omborni tahrirlash</h5></div>
+                        <div class="modal-body form-modern">
+                          <div class="mb-3">
+                            <label class="fm-label">Nomi</label>
+                            <input type="text" class="form-control" name="name" value="{{s.name}}" required />
+                          </div>
+                          <div class="mb-3">
+                            <label class="fm-label">Turi</label>
+                            <select name="type" class="form-control" required>
+                              {% for type in types %}
+                              <option value="{{type.id}}" {% if type.id == s.type %}selected{% endif %}>{{type.name}}</option>
+                              {% endfor %}
+                            </select>
+                          </div>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                          <button type="submit" class="btn btn-primary btn-modern">Saqlash</button>
+                        </div>
+                      </form>
+                    </div></div>
+                  </div>
+
+                  <div class="modal fade" id="delete{{s.id}}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog"><div class="modal-content">
+                      <div class="modal-header"><h5 class="modal-title">"{{s.name}}"ni o'chirasizmi?</h5></div>
+                      <div class="modal-body">
+                        {% if s.pis_set.count %}
+                        <p class="text-danger mb-0">Diqqat: bu omborda {{s.pis_set.count}} turdagi mahsulot bor.</p>
+                        {% else %}
+                        <p class="text-danger mb-0">Bu amalni qaytarib bo'lmaydi.</p>
+                        {% endif %}
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                        <a href="/usta/storage_delete/{{s.id}}" class="btn btn-danger">Ha, o'chirish</a>
+                      </div>
+                    </div></div>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr class="empty-row"><td colspan="4">Hozircha ombor yo'q</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock wrapper %}

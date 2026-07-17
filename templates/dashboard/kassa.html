@@ -1,0 +1,284 @@
+{% extends 'dashboard/wrapper.html' %}
+{% load humanize %}
+
+{% block wrapper %}
+<style>
+    .p-tabs{border:none;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
+    .p-tabs .nav-link{border:none;border-radius:10px;color:#6b7280;font-weight:600;padding:10px 18px;background:#f2f4f8;}
+    .p-tabs .nav-link.active{background:linear-gradient(135deg,#4d83ff,#7859df);color:#fff;box-shadow:0 6px 16px rgba(77,131,255,.28);}
+    .wallet-card{background:#fff;border:none;border-radius:14px;padding:18px 20px;
+        box-shadow:0 4px 18px rgba(40,47,58,.06);height:100%;}
+    .wallet-card small{color:#9aa0ac;text-transform:uppercase;font-size:11px;letter-spacing:.4px;}
+    .wallet-card h4{font-weight:700;margin:4px 0 0;color:#282f3a;}
+    .add-wallet-card{display:flex;align-items:center;justify-content:center;height:100%;
+        border:2px dashed #e6e9f0;border-radius:14px;color:#9aa0ac;font-weight:600;cursor:pointer;min-height:88px;transition:.18s;}
+    .add-wallet-card:hover{border-color:#4d83ff;color:#4d83ff;}
+</style>
+
+<div class="main-panel">
+  <div class="content-wrapper">
+    {% include 'messages.html' %}
+
+    <div class="page-hero">
+      <h2>💰 Kassa</h2>
+      <p>Hamyonlar, kirim/chiqim va harajatlar</p>
+    </div>
+
+    <!-- Hamyonlar -->
+    <div class="row mb-4">
+      {% for cash in cashes %}
+      <div class="col-md-3 col-6 mb-3">
+        <div class="wallet-card">
+          <small>{{cash.name}} · {{cash.get_currency_display}}</small>
+          <h4>{{cash.mount|intcomma}} <span style="font-size:13px;color:#9aa0ac;">{{cash.get_currency_display}}</span></h4>
+        </div>
+      </div>
+      {% endfor %}
+      <div class="col-md-3 col-6 mb-3">
+        <div class="add-wallet-card" data-bs-toggle="modal" data-bs-target="#addCashModal">
+          <i class="mdi mdi-plus mr-1"></i> Hamyon qo'shish
+        </div>
+      </div>
+    </div>
+
+    <!-- Tablar -->
+    <ul class="nav p-tabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-income" type="button"><i class="mdi mdi-arrow-down-bold-circle-outline"></i> Kirim</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-outcome" type="button"><i class="mdi mdi-arrow-up-bold-circle-outline"></i> Chiqim</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-expense" type="button"><i class="mdi mdi-cash-minus"></i> Harajat</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history" type="button"><i class="mdi mdi-history"></i> Tarix</button></li>
+    </ul>
+
+    <div class="tab-content">
+
+      <!-- KIRIM -->
+      <div class="tab-pane fade show active" id="tab-income">
+        <div class="card soft-card">
+          <div class="card-body">
+            <h4 class="card-title mb-4">Kirim qilish <small class="text-muted" style="font-size:13px;">— mijozdan pul keldi</small></h4>
+            {% if not cashes %}
+            <p class="text-muted">Avval hamyon qo'shing.</p>
+            {% else %}
+            <form class="form-modern" method="post" action="/usta/kassa/income/"> {% csrf_token %}
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Mijoz</label>
+                  <select name="client" class="form-control" required>
+                    <option value=""></option>
+                    {% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Hamyon</label>
+                  <select name="cash" class="form-control" required>
+                    <option value=""></option>
+                    {% for cash in cashes %}<option value="{{cash.id}}">{{cash.name}} ({{cash.get_currency_display}})</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Summa</label>
+                  <input type="number" step="0.01" class="form-control" name="mount" required />
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Sana</label>
+                  <input type="date" class="form-control" name="date" />
+                </div>
+                <div class="col-md-8 mb-3">
+                  <label class="fm-label">Izoh</label>
+                  <input type="text" class="form-control" name="comment" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-check"></i> Kirim qilish</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- CHIQIM -->
+      <div class="tab-pane fade" id="tab-outcome">
+        <div class="card soft-card">
+          <div class="card-body">
+            <h4 class="card-title mb-4">Chiqim qilish <small class="text-muted" style="font-size:13px;">— mijozga pul berildi</small></h4>
+            {% if not cashes %}
+            <p class="text-muted">Avval hamyon qo'shing.</p>
+            {% else %}
+            <form class="form-modern" method="post" action="/usta/kassa/outcome/"> {% csrf_token %}
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Mijoz</label>
+                  <select name="client" class="form-control" required>
+                    <option value=""></option>
+                    {% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Hamyon</label>
+                  <select name="cash" class="form-control" required>
+                    <option value=""></option>
+                    {% for cash in cashes %}<option value="{{cash.id}}">{{cash.name}} ({{cash.get_currency_display}})</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Summa</label>
+                  <input type="number" step="0.01" class="form-control" name="mount" required />
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Sana</label>
+                  <input type="date" class="form-control" name="date" />
+                </div>
+                <div class="col-md-8 mb-3">
+                  <label class="fm-label">Izoh</label>
+                  <input type="text" class="form-control" name="comment" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-check"></i> Chiqim qilish</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- HARAJAT -->
+      <div class="tab-pane fade" id="tab-expense">
+        <div class="card soft-card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h4 class="card-title mb-0">Harajat qo'shish <small class="text-muted" style="font-size:13px;">— mijozga aloqasi yo'q</small></h4>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                <i class="mdi mdi-plus"></i> Yangi turkum
+              </button>
+            </div>
+            {% if not cashes %}
+            <p class="text-muted">Avval hamyon qo'shing.</p>
+            {% else %}
+            <form class="form-modern" method="post" action="/usta/kassa/expense/"> {% csrf_token %}
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Hamyon</label>
+                  <select name="cash" class="form-control" required>
+                    <option value=""></option>
+                    {% for cash in cashes %}<option value="{{cash.id}}">{{cash.name}} ({{cash.get_currency_display}})</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Turkumi</label>
+                  <select name="category" class="form-control">
+                    <option value=""></option>
+                    {% for cat in categories %}<option value="{{cat.id}}">{{cat.name}}</option>{% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Summa</label>
+                  <input type="number" step="0.01" class="form-control" name="mount" required />
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="fm-label">Sana</label>
+                  <input type="date" class="form-control" name="date" />
+                </div>
+                <div class="col-md-8 mb-3">
+                  <label class="fm-label">Izoh</label>
+                  <input type="text" class="form-control" name="comment" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-modern"><i class="mdi mdi-check"></i> Harajat qo'shish</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- TARIX -->
+      <div class="tab-pane fade" id="tab-history">
+        <div class="card soft-card">
+          <div class="card-body">
+            <form method="get" class="form-modern row mb-3" style="gap:0;">
+              <div class="col-md-3 mb-2"><input type="date" class="form-control" name="start_date" value="{{filter_date.start_date}}"></div>
+              <div class="col-md-3 mb-2"><input type="date" class="form-control" name="end_date" value="{{filter_date.end_date}}"></div>
+              <div class="col-md-2 mb-2"><button class="btn btn-primary btn-modern w-100" type="submit">Filterlash</button></div>
+            </form>
+
+            <div class="table-responsive">
+              <table class="tbl-modern">
+                <thead>
+                  <tr><th>Sana</th><th>Turi</th><th>Hamyon</th><th>Summa</th><th>Mijoz / Turkum</th><th>Izoh</th></tr>
+                </thead>
+                <tbody>
+                  {% for p in payments %}
+                  <tr>
+                    <td>{{p.date|date:"d.m.Y"}}</td>
+                    <td>
+                      {% if p.type == 1 %}<span class="badge-soft badge-green">Kirim</span>
+                      {% elif p.type == 2 %}<span class="badge-soft badge-amber">Chiqim</span>
+                      {% else %}<span class="badge-soft badge-gray">Harajat</span>{% endif %}
+                    </td>
+                    <td>{{p.cash.name|default:"—"}}</td>
+                    <td>{{p.mount|intcomma}} {{p.get_currency_display}}</td>
+                    <td>
+                      {% if p.type == 3 %}{{p.category.name|default:"—"}}
+                      {% else %}{{p.client_cash.client.name|default:"—"}}{% endif %}
+                    </td>
+                    <td>{{p.comment|default:"—"}}</td>
+                  </tr>
+                  {% empty %}
+                  <tr class="empty-row"><td colspan="6">Bu davrda yozuv yo'q</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Hamyon qo'shish modal -->
+<div class="modal fade" id="addCashModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="/usta/kassa/add_cash/"> {% csrf_token %}
+      <div class="modal-header"><h5 class="modal-title">Hamyon qo'shish</h5></div>
+      <div class="modal-body form-modern">
+        <div class="mb-3">
+          <label class="fm-label">Nomi</label>
+          <input type="text" class="form-control" name="name" required />
+        </div>
+        <div class="mb-3">
+          <label class="fm-label">Valyuta</label>
+          <select name="currency" class="form-control" required>
+            {% for c in currencies %}<option value="{{c.0}}">{{c.1}}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="fm-label">Boshlang'ich summa</label>
+          <input type="number" step="0.01" class="form-control" name="mount" value="0" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+        <button type="submit" class="btn btn-primary btn-modern">Qo'shish</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<!-- Turkum qo'shish modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <form method="post" action="/usta/kassa/add_category/"> {% csrf_token %}
+      <div class="modal-header"><h5 class="modal-title">Harajat turkumi qo'shish</h5></div>
+      <div class="modal-body form-modern">
+        <div class="mb-3">
+          <label class="fm-label">Nomi</label>
+          <input type="text" class="form-control" name="name" required />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+        <button type="submit" class="btn btn-primary btn-modern">Qo'shish</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endblock wrapper %}
