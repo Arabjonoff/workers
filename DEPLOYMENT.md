@@ -63,23 +63,76 @@ DB_HOST=127.0.0.1
 DB_PORT=5432
 ```
 
-## Kodni yangilash (deploy)
+## CI/CD (GitHub Actions) — 2026-07-17'dan beri avtomatik
 
-Har safar `master`ga yangi commit qo'shilganda, serverda:
+Deploy endi **qo'lda emas** — GitHub Actions orqali avtomatlashtirilgan.
+Workflow fayli: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+(`Arabjonoff/workers` repo). Progressni ko'rish:
+`gh run list --repo Arabjonoff/workers` yoki GitHub'da **Actions** tabi.
+
+Bitta workflow (`CI/CD`), ikkita job:
+
+1. **`test`** — har qanday branch'ga push va `master`ga PR'da ishga tushadi:
+   - `pip install -r requirements.txt`
+   - `python manage.py makemigrations --check --dry-run` (migratsiya
+     yetishmasa xato beradi — model o'zgartirib, migratsiya yaratishni
+     unutsangiz shu yerda ushlanadi)
+   - `python manage.py check`
+   - `python manage.py migrate` (SQLite, CI'ga xos, production bazasiga
+     tegmaydi)
+   - `python manage.py test` (`main/tests/test_tenant_isolation.py` — 12 test)
+2. **`deploy`** — faqat `master`ga **push** bo'lganda va `test` job
+   muvaffaqiyatli o'tgandan keyin ishga tushadi. Serverga SSH orqali
+   ulanib, xuddi avvalgi qo'lda bajariladigan qadamlarni bajaradi:
+   ```bash
+   cd /var/www/workers.uz/app
+   git fetch origin master
+   git reset --hard origin/master   # serverdagi qo'lda o'zgartirilgan fayllarni ham qaytaradi
+   source venv/bin/activate
+   pip install -r requirements.txt
+   python manage.py migrate
+   python manage.py collectstatic --noinput
+   systemctl restart workers-uz.service
+   ```
+   Oxirida `https://workers.uz/` ga so'rov yuborib, sayt javob berayotganini
+   tekshiradi (health check) — javob bermasa job qizil bo'lib chiqadi.
+
+**Muhim farq**: `python manage.py makemigrations main` qadami endi **yo'q**.
+Sabab — 2026-07-17'da `main/migrations/`, `dashboard/migrations/`,
+`api/migrations/` gitga qo'shildi (avval `.gitignore`da edi, har muhitda
+alohida generatsiya qilinardi — bu CI/CD uchun beqaror edi). Endi
+migratsiya fayllari repo orqali keladi, serverda faqat `migrate`
+ishlatiladi. **Yangi migratsiya kerak bo'lsa, uni lokal mashinada
+(`python manage.py makemigrations main`) yaratib, commit qilib push
+qiling** — serverda avtomatik yaratilmaydi.
+
+### GitHub Secrets (repo Settings → Secrets and variables → Actions)
+
+| Nom | Qiymat |
+|---|---|
+| `SSH_PRIVATE_KEY` | `~/.ssh/workers_server_key` fayl tarkibi |
+| `SSH_HOST` | `5.104.108.235` |
+| `SSH_USER` | `root` |
+| `SSH_PORT` | `22` |
+
+Kalit almashtirilsa yoki server o'zgarsa, shu 4 ta secret'ni yangilash kifoya
+— workflow faylini o'zgartirish shart emas.
+
+### Qo'lda deploy (faqat favqulodda holat uchun — CI/CD ishlamasa)
 
 ```bash
 ssh -i ~/.ssh/workers_server_key root@5.104.108.235
 cd /var/www/workers.uz/app
 git pull origin master
 source venv/bin/activate
-pip install -r requirements.txt        # yangi kutubxona qo'shilgan bo'lsa
-python manage.py makemigrations main   # model o'zgargan bo'lsa
-python manage.py migrate
+pip install -r requirements.txt
+python manage.py migrate               # makemigrations kerak emas, migratsiyalar gitdan keladi
 python manage.py collectstatic --noinput
 systemctl restart workers-uz.service
 ```
 
-`CRONJOBS` (`config/settings.py`) o'zgartirilsa, qo'shimcha:
+`CRONJOBS` (`config/settings.py`) o'zgartirilsa, qo'shimcha (CI/CD hali bu
+qadamni avtomatlashtirmagan, qo'lda bajarish kerak):
 ```bash
 python manage.py crontab remove && python manage.py crontab add
 ```
@@ -106,6 +159,11 @@ python manage.py crontab remove && python manage.py crontab add
       bazada faqat super-admin bor. Haqiqiy korxonalarni `/super/` panelidan
       qo'shish kerak.
 - [ ] Media fayllar (`media/`) va baza uchun hali avtomatik backup sozlanmagan.
+- [x] **CI/CD**: GitHub Actions orqali sozlangan — `master`ga push testlardan
+      o'tsa avtomatik production'ga deploy qiladi (yuqoridagi "CI/CD" bo'limiga
+      qarang).
+- [x] Migratsiyalar (`main/`, `dashboard/`, `api/migrations/`) gitga
+      qo'shildi — endi barcha muhitda bir xil migratsiya tarixi.
 
 ## Muhim eslatmalar keyingi AI agent uchun
 
@@ -117,6 +175,16 @@ python manage.py crontab remove && python manage.py crontab add
   `WorkingDirectory` (`/var/www/workers.uz/app`)ga bog'liq ekanini
   unutmang, agar systemd fayldagi `WorkingDirectory`ni o'zgartirsangiz
   static/media yo'llari ham buziladi.
-- `main/migrations/` va `db.sqlite3` `.gitignore`da — serverda migratsiya
-  fayllari git orqali kelmaydi, har safar `makemigrations` qayta ishga
-  tushiriladi (bu ataylab shunday, loyihaning mavjud konvensiyasi).
+- `db.sqlite3` hali `.gitignore`da (lokal SQLite baza, production
+  PostgreSQL ishlatadi — bog'liq emas). Lekin `main/migrations/`,
+  `dashboard/migrations/`, `api/migrations/` **2026-07-17'dan beri gitga
+  qo'shilgan** — avval bular ham gitignore'da edi va har muhitda alohida
+  `makemigrations` bilan qayta yaratilardi. Bu CI/CD uchun beqaror edi
+  (turli muhitda turli fayl nomi/mazmuni chiqishi mumkin edi), shuning
+  uchun endi migratsiyalar repo orqali keladi. **Yangi migratsiya fayl
+  qo'shsangiz, uni albatta commit qiling** — server endi o'zi
+  `makemigrations` ishlatmaydi (yuqoridagi "CI/CD" bo'limiga qarang).
+- Deploy job `git reset --hard origin/master` ishlatadi (`git pull` emas) —
+  serverda qo'lda qilingan har qanday fayl o'zgarishi (masalan `static/`
+  papkasidagi collectstatic natijalari) keyingi deploy'da qaytariladi.
+  Serverda qo'lda kod o'zgartirmang — hamma narsa git orqali kelishi kerak.
